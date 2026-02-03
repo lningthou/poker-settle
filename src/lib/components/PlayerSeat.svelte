@@ -15,6 +15,9 @@
 		hasCards?: boolean;
 		position?: 'top' | 'left' | 'right' | 'bottom' | 'top-left' | 'top-right';
 		animate?: boolean;
+		isWinner?: boolean;
+		winAmount?: number;
+		winHand?: string;
 	}
 
 	let {
@@ -28,7 +31,10 @@
 		showCards = false,
 		hasCards = false,
 		position = 'bottom',
-		animate = true
+		animate = true,
+		isWinner = false,
+		winAmount = 0,
+		winHand = ''
 	}: Props = $props();
 
 	let prevChips = $state(0);
@@ -61,8 +67,25 @@
 	class:folded={player.folded}
 	class:all-in={player.allIn}
 	class:disconnected={!player.connected}
+	class:winner={isWinner}
+	class:busted={player.chips === 0 && player.sittingOut}
 	data-position={position}
 >
+	<!-- Confetti for winner -->
+	{#if isWinner}
+		<div class="confetti-container">
+			{#each Array(12) as _, i}
+				<div class="confetti" style="--i: {i}; --color: {['#FE5F55', '#009DFF', '#F3B958', '#4BC292', '#F03464'][i % 5]}"></div>
+			{/each}
+		</div>
+		<div class="win-banner">
+			<span class="win-amount">+{winAmount}</span>
+			{#if winHand}
+				<span class="win-hand">{winHand}</span>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Player info -->
 	<div class="player-info">
 		<div class="name-row">
@@ -95,12 +118,16 @@
 			</div>
 		{/if}
 
-		{#if player.folded}
+		{#if player.chips === 0 && player.sittingOut}
+			<div class="status-badge busted-badge">BUSTED</div>
+		{:else if player.folded}
 			<div class="status-badge folded-badge">FOLD</div>
 		{:else if player.allIn}
 			<div class="status-badge allin-badge">ALL IN</div>
 		{:else if !player.connected}
 			<div class="status-badge disconnected-badge">AWAY</div>
+		{:else if player.sittingOut}
+			<div class="status-badge sitting-out-badge">SITTING OUT</div>
 		{/if}
 	</div>
 
@@ -155,6 +182,112 @@
 
 	.player-seat.disconnected {
 		opacity: 0.4;
+	}
+
+	.player-seat.busted {
+		opacity: 0.3;
+		filter: grayscale(0.8);
+		transform: scale(0.9);
+	}
+
+	.player-seat.winner {
+		border-color: var(--accent-gold);
+		transform: scale(1.1);
+		z-index: 100;
+		animation: winner-glow 0.8s ease-in-out infinite alternate;
+	}
+
+	@keyframes winner-glow {
+		0% {
+			box-shadow: 0 0 20px rgba(243, 185, 88, 0.6), 0 0 40px rgba(243, 185, 88, 0.4), 0 0 60px rgba(243, 185, 88, 0.2);
+		}
+		100% {
+			box-shadow: 0 0 30px rgba(243, 185, 88, 0.8), 0 0 60px rgba(243, 185, 88, 0.6), 0 0 90px rgba(243, 185, 88, 0.4);
+		}
+	}
+
+	/* Confetti */
+	.confetti-container {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+		z-index: 200;
+	}
+
+	.confetti {
+		position: absolute;
+		width: 8px;
+		height: 8px;
+		background: var(--color);
+		border-radius: 2px;
+		animation: confetti-burst 1.5s ease-out forwards;
+		animation-delay: calc(var(--i) * 0.05s);
+	}
+
+	@keyframes confetti-burst {
+		0% {
+			transform: translate(0, 0) rotate(0deg) scale(0);
+			opacity: 1;
+		}
+		20% {
+			transform: translate(
+				calc(cos(calc(var(--i) * 30deg)) * 60px),
+				calc(sin(calc(var(--i) * 30deg)) * 60px - 40px)
+			) rotate(180deg) scale(1);
+			opacity: 1;
+		}
+		100% {
+			transform: translate(
+				calc(cos(calc(var(--i) * 30deg)) * 80px),
+				calc(sin(calc(var(--i) * 30deg)) * 60px + 60px)
+			) rotate(540deg) scale(0.5);
+			opacity: 0;
+		}
+	}
+
+	/* Win banner */
+	.win-banner {
+		position: absolute;
+		top: -40px;
+		left: 50%;
+		transform: translateX(-50%);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		background: linear-gradient(135deg, #F3B958, #e6a93d);
+		padding: 4px 12px;
+		border-radius: 8px;
+		box-shadow: 0 4px 0 #b8893a, 0 6px 20px rgba(243, 185, 88, 0.5);
+		animation: win-pop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+		z-index: 201;
+	}
+
+	@keyframes win-pop {
+		0% {
+			transform: translateX(-50%) scale(0) translateY(20px);
+			opacity: 0;
+		}
+		100% {
+			transform: translateX(-50%) scale(1) translateY(0);
+			opacity: 1;
+		}
+	}
+
+	.win-amount {
+		color: #1a1a1a;
+		font-size: 18px;
+		font-weight: bold;
+	}
+
+	.win-hand {
+		color: #4a3a1a;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
 	}
 
 	.player-info {
@@ -282,6 +415,17 @@
 
 	.disconnected-badge {
 		background: var(--text-secondary);
+		color: var(--bg-primary);
+	}
+
+	.busted-badge {
+		background: #1a1a1a;
+		color: var(--accent-red);
+		border: 1px solid var(--accent-red);
+	}
+
+	.sitting-out-badge {
+		background: var(--text-muted);
 		color: var(--bg-primary);
 	}
 

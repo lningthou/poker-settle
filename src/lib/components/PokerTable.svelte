@@ -4,6 +4,12 @@
 	import Card from './Card.svelte';
 	import PlayerSeat from './PlayerSeat.svelte';
 
+	interface WinnerResult {
+		playerId: string;
+		hand: string;
+		amount: number;
+	}
+
 	interface Props {
 		players: PublicPlayer[];
 		myId: string | null;
@@ -17,6 +23,7 @@
 		bigBlind: number;
 		showdownCards?: Record<string, CardType[]>;
 		showdown?: boolean;
+		winners?: WinnerResult[];
 		children?: import('svelte').Snippet;
 	}
 
@@ -33,8 +40,14 @@
 		bigBlind,
 		showdownCards = {},
 		showdown = false,
+		winners = [],
 		children
 	}: Props = $props();
+
+	// Helper to get winner info for a player
+	function getWinnerInfo(playerId: string): WinnerResult | null {
+		return winners.find(w => w.playerId === playerId) ?? null;
+	}
 
 	// Calculate SB and BB positions based on dealer
 	// In heads-up: dealer is SB, other player is BB
@@ -151,6 +164,7 @@
 			{@const playerHoleCards = getPlayerHoleCards(player)}
 			{@const showCards = shouldShowCards(player)}
 			{@const playerHasCards = hasCards(player)}
+			{@const winnerInfo = getWinnerInfo(player.id)}
 
 			<div class="seat-wrapper" data-position={position}>
 				<PlayerSeat
@@ -165,6 +179,9 @@
 					hasCards={playerHasCards}
 					{position}
 					animate={phase !== 'waiting'}
+					isWinner={winnerInfo !== null}
+					winAmount={winnerInfo?.amount ?? 0}
+					winHand={winnerInfo?.hand ?? ''}
 				/>
 			</div>
 		{/each}

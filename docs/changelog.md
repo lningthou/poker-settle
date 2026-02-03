@@ -7,7 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
-- Retro 8-bit sound effects using jsfxr library
+- Balatro-style winner highlighting with confetti animation
+  - Winner's seat scales up and glows gold
+  - Confetti particles burst from winner
+  - Win amount and hand displayed in gold banner above winner
+  - Removed popup overlay in favor of player highlighting
+- Game paused state when not enough players have chips
+  - Shows "Game Paused" panel with explanation
+  - Host can end session from this state
+- Busted player display
+  - Players with 0 chips shown grayed out and smaller
+  - "BUSTED" badge displayed
+- Retro 8-bit sound effects using Web Audio API
   - Card deal and flip sounds
   - Chip/bet sounds for call, raise, all-in
   - Check (soft tap) and fold (low thud) sounds

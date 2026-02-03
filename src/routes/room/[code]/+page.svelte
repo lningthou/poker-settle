@@ -135,6 +135,14 @@
 		return me !== null && me.chips === 0 && $phase === 'complete';
 	}
 
+	function playersWithChips(): number {
+		return $players.filter(p => p.chips > 0 && !p.sittingOut).length;
+	}
+
+	function isGamePaused(): boolean {
+		return $phase === 'complete' && playersWithChips() < 2;
+	}
+
 	let rebuyAmount = $state(1000);
 	let showBetPanel = $state(false);
 
@@ -361,25 +369,31 @@
 				bigBlind={$bigBlind}
 				showdownCards={$showdownCards}
 				showdown={$phase === 'showdown' || $phase === 'complete'}
-			>
-				<!-- Hand Result Overlay -->
-				{#if $handResult && $phase === 'complete'}
-					<div class="hand-result panel glow-gold slide-up">
-						{#each $handResult as result}
-							<div class="winner-line">
-								<span class="winner-name">{getPlayerName(result.playerId)}</span>
-								<span class="winner-amount">wins {result.amount}</span>
-								{#if result.hand}
-									<span class="winner-hand">({result.hand})</span>
-								{/if}
-							</div>
-						{/each}
-						{#if $nextHandCountdown}
-							<div class="countdown">Next hand in {$nextHandCountdown}...</div>
+				winners={$phase === 'complete' ? $handResult ?? [] : []}
+			/>
+
+			<!-- Game paused - waiting for players to rebuy -->
+			{#if isGamePaused()}
+				<div class="game-paused panel">
+					<div class="pause-icon">II</div>
+					<h3 class="text-lg text-gold text-center">Game Paused</h3>
+					<p class="text-secondary text-center">
+						{#if playersWithChips() === 1}
+							Only one player has chips. Waiting for others to rebuy...
+						{:else}
+							No players have chips. Everyone needs to rebuy to continue.
 						{/if}
-					</div>
-				{/if}
-			</PokerTable>
+					</p>
+					{#if $isHost}
+						<button class="btn btn-danger" onclick={endSession}>End Session</button>
+					{/if}
+				</div>
+			{:else if $nextHandCountdown && $phase === 'complete'}
+				<!-- Next hand countdown (subtle, at bottom) -->
+				<div class="next-hand-countdown">
+					Next hand in {$nextHandCountdown}...
+				</div>
+			{/if}
 
 			<!-- Rebuy prompt when busted -->
 			{#if needsRebuy()}
@@ -674,37 +688,36 @@
 		margin-top: var(--space-4);
 	}
 
-	/* Hand Result */
-	.hand-result {
+	/* Next hand countdown */
+	.next-hand-countdown {
 		text-align: center;
-		margin-top: var(--space-4);
-	}
-
-	.winner-line {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: var(--space-2);
-		margin-bottom: var(--space-2);
-	}
-
-	.winner-name {
-		color: var(--accent-gold);
-		font-weight: bold;
-	}
-
-	.winner-amount {
-		color: var(--accent-green);
-	}
-
-	.winner-hand {
-		color: var(--text-secondary);
-	}
-
-	.countdown {
 		color: var(--text-muted);
 		font-size: 14px;
-		margin-top: var(--space-2);
+		padding: var(--space-2);
+		animation: fade-pulse 1s ease-in-out infinite;
+	}
+
+	@keyframes fade-pulse {
+		0%, 100% { opacity: 0.5; }
+		50% { opacity: 1; }
+	}
+
+	/* Game paused state */
+	.game-paused {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-6);
+		text-align: center;
+		border-color: var(--accent-gold);
+	}
+
+	.pause-icon {
+		font-size: 32px;
+		font-weight: bold;
+		color: var(--accent-gold);
+		letter-spacing: 4px;
 	}
 
 	/* Rebuy Prompt */
