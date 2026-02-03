@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Retro 8-bit sound effects using jsfxr library
+  - Card deal and flip sounds
+  - Chip/bet sounds for call, raise, all-in
+  - Check (soft tap) and fold (low thud) sounds
+  - Your turn notification chime
+  - Win fanfare synced with screen shake
+  - Button click feedback
+  - Sound toggle in header (SFX ON/OFF), persisted to localStorage
 - Bet panel with presets instead of always-visible slider
   - Bet/Raise button reveals preset panel with 1/4, 1/2, 3/4, Pot, and All-in options
   - Slider still available for custom amounts

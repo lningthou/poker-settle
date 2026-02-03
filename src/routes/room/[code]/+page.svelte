@@ -43,6 +43,7 @@
 	import type { Card } from '$lib/engine/types';
 	import PokerTable from '$lib/components/PokerTable.svelte';
 	import CardComponent from '$lib/components/Card.svelte';
+	import { sounds, soundEnabled, toggleSound } from '$lib/sounds';
 
 	const PARTY_HOST = 'localhost:1999';
 
@@ -78,15 +79,25 @@
 		}
 	});
 
-	// Screen shake on win
+	// Screen shake and sound on win
 	$effect(() => {
 		if ($handResult && $handResult.length > 0) {
 			const isWinner = $handResult.some(r => r.playerId === $playerId);
 			if (isWinner) {
 				screenShake = true;
+				sounds.winPot();
 				setTimeout(() => screenShake = false, 500);
 			}
 		}
+	});
+
+	// Sound when it becomes your turn
+	let wasMyTurn = false;
+	$effect(() => {
+		if ($isMyTurn && !wasMyTurn && $phase !== 'waiting' && $phase !== 'complete') {
+			sounds.yourTurn();
+		}
+		wasMyTurn = $isMyTurn;
 	});
 
 	async function copyShareLink() {
@@ -134,13 +145,30 @@
 
 	function handleRaise() {
 		if (raiseAmount > 0) {
+			sounds.raise();
 			raise(raiseAmount);
 			raiseAmount = 0;
 			showBetPanel = false;
 		}
 	}
 
+	function handleFold() {
+		sounds.fold();
+		fold();
+	}
+
+	function handleCheck() {
+		sounds.check();
+		check();
+	}
+
+	function handleCall() {
+		sounds.call();
+		call();
+	}
+
 	function toggleBetPanel() {
+		sounds.buttonClick();
 		showBetPanel = !showBetPanel;
 		if (showBetPanel) {
 			// Default to min raise
@@ -159,6 +187,7 @@
 	}
 
 	function handleAllIn() {
+		sounds.allIn();
 		allIn();
 		showBetPanel = false;
 	}
@@ -200,9 +229,18 @@
 					{showCopied ? 'Copied!' : 'Share'}
 				</button>
 			</div>
-			{#if $isHost && $phase !== 'waiting'}
-				<button class="btn btn-danger btn-sm" onclick={endSession}>End Session</button>
-			{/if}
+			<div class="header-actions">
+				<button
+					class="btn btn-secondary btn-sm sound-toggle"
+					onclick={toggleSound}
+					title={$soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+				>
+					{$soundEnabled ? 'SFX ON' : 'SFX OFF'}
+				</button>
+				{#if $isHost && $phase !== 'waiting'}
+					<button class="btn btn-danger btn-sm" onclick={endSession}>End Session</button>
+				{/if}
+			</div>
 		</header>
 
 		<!-- Error Toast -->
@@ -363,15 +401,15 @@
 			{#if $isMyTurn && $phase !== 'complete'}
 				<div class="controls panel">
 					<div class="action-buttons">
-						<button class="btn btn-danger" onclick={fold}>Fold</button>
+						<button class="btn btn-danger" onclick={handleFold}>Fold</button>
 						{#if canCheck()}
-							<button class="btn btn-blue" onclick={check}>Check</button>
+							<button class="btn btn-blue" onclick={handleCheck}>Check</button>
 						{:else if isCallAllIn()}
-							<button class="btn btn-gold" onclick={call}>
+							<button class="btn btn-gold" onclick={handleCall}>
 								Call {callAmount()} (All In)
 							</button>
 						{:else}
-							<button class="btn btn-blue" onclick={call}>
+							<button class="btn btn-blue" onclick={handleCall}>
 								Call {callAmount()}
 							</button>
 						{/if}
@@ -483,6 +521,22 @@
 		color: var(--text-secondary);
 		text-transform: uppercase;
 		letter-spacing: 2px;
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.sound-toggle {
+		font-size: 12px;
+		padding: var(--space-1) var(--space-2);
+		opacity: 0.8;
+	}
+
+	.sound-toggle:hover {
+		opacity: 1;
 	}
 
 	/* Error Toast */

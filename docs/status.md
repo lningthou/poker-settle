@@ -57,7 +57,12 @@
   - [x] Bet panel with presets (1/4, 1/2, 3/4, Pot, All-in)
   - [x] Showdown card reveal (opponents' cards visible during showdown)
   - [x] Players positioned outside table felt
-- [ ] Sound effects (toggle-able)
+- [x] Sound effects (toggle-able)
+  - [x] Retro 8-bit sounds using jsfxr library
+  - [x] Sound toggle in header (persisted to localStorage)
+  - [x] Sounds for all actions: fold, check, call, raise, all-in
+  - [x] Your turn notification chime
+  - [x] Win fanfare with screen shake
 - [ ] Edge case handling (disconnect mid-hand, player timeout)
 - [ ] Deploy frontend to Vercel
 - [ ] Deploy real-time server to PartyKit
