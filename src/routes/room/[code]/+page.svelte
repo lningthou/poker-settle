@@ -111,6 +111,25 @@
 		return Math.min($currentBet - me.bet, me.chips);
 	}
 
+	function isCallAllIn(): boolean {
+		const me = $myPlayer;
+		if (!me) return false;
+		return callAmount() >= me.chips;
+	}
+
+	function needsRebuy(): boolean {
+		const me = $myPlayer;
+		return me !== null && me.chips === 0 && $phase === 'complete';
+	}
+
+	let rebuyAmount = $state(1000);
+
+	function handleRebuy() {
+		if (rebuyAmount > 0) {
+			rebuy(rebuyAmount);
+		}
+	}
+
 	function handleRaise() {
 		if (raiseAmount > 0) {
 			raise(raiseAmount);
@@ -265,6 +284,8 @@
 				pots={$pots}
 				phase={$phase}
 				holeCards={$holeCards}
+				smallBlind={$smallBlind}
+				bigBlind={$bigBlind}
 				showdown={$phase === 'showdown' || $phase === 'complete'}
 			>
 				<!-- Hand Result Overlay -->
@@ -286,6 +307,24 @@
 				{/if}
 			</PokerTable>
 
+			<!-- Rebuy prompt when busted -->
+			{#if needsRebuy()}
+				<div class="rebuy-prompt panel glow-gold slide-up">
+					<h3 class="text-lg text-gold text-center mb-4">Out of Chips!</h3>
+					<p class="text-secondary text-center mb-4">Rebuy to continue playing</p>
+					<div class="rebuy-controls">
+						<div class="stepper">
+							<button class="step-btn" onclick={() => (rebuyAmount = Math.max(100, rebuyAmount - 100))}>-</button>
+							<input type="number" bind:value={rebuyAmount} min="100" step="100" />
+							<button class="step-btn" onclick={() => (rebuyAmount += 100)}>+</button>
+						</div>
+						<button class="btn btn-gold" onclick={handleRebuy}>
+							Rebuy {rebuyAmount} Chips
+						</button>
+					</div>
+				</div>
+			{/if}
+
 			<!-- Betting Controls -->
 			{#if $isMyTurn && $phase !== 'complete'}
 				<div class="controls panel">
@@ -293,28 +332,36 @@
 						<button class="btn btn-danger" onclick={fold}>Fold</button>
 						{#if canCheck()}
 							<button class="btn btn-blue" onclick={check}>Check</button>
+						{:else if isCallAllIn()}
+							<button class="btn btn-gold" onclick={call}>
+								Call {callAmount()} (All In)
+							</button>
 						{:else}
 							<button class="btn btn-blue" onclick={call}>
 								Call {callAmount()}
 							</button>
 						{/if}
-						<button class="btn btn-gold" onclick={allIn}>All In</button>
+						{#if !isCallAllIn() && !canCheck()}
+							<button class="btn btn-gold" onclick={allIn}>All In</button>
+						{/if}
 					</div>
-					<div class="raise-controls">
-						<input
-							type="range"
-							min={$bigBlind}
-							max={$myPlayer?.chips ?? 0}
-							step={$bigBlind}
-							bind:value={raiseAmount}
-						/>
-						<div class="raise-row">
-							<input type="number" bind:value={raiseAmount} min={$bigBlind} />
-							<button class="btn btn-secondary" onclick={handleRaise} disabled={raiseAmount <= 0}>
-								Raise
-							</button>
+					{#if !isCallAllIn()}
+						<div class="raise-controls">
+							<input
+								type="range"
+								min={$bigBlind}
+								max={$myPlayer?.chips ?? 0}
+								step={$bigBlind}
+								bind:value={raiseAmount}
+							/>
+							<div class="raise-row">
+								<input type="number" bind:value={raiseAmount} min={$bigBlind} />
+								<button class="btn btn-secondary" onclick={handleRaise} disabled={raiseAmount <= 0}>
+									Raise
+								</button>
+							</div>
 						</div>
-					</div>
+					{/if}
 				</div>
 			{/if}
 
@@ -547,6 +594,36 @@
 		color: var(--text-muted);
 		font-size: 14px;
 		margin-top: var(--space-2);
+	}
+
+	/* Rebuy Prompt */
+	.rebuy-prompt {
+		margin-top: var(--space-4);
+	}
+
+	.rebuy-controls {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		align-items: center;
+	}
+
+	.rebuy-controls .stepper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+
+	.rebuy-controls .stepper input {
+		width: 100px;
+		text-align: center;
+		font-size: 18px;
+		font-weight: bold;
+	}
+
+	.rebuy-controls .btn {
+		width: 100%;
+		max-width: 250px;
 	}
 
 	/* Controls */

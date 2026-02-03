@@ -13,6 +13,8 @@
 		pots: { amount: number }[];
 		phase: string;
 		holeCards: CardType[];
+		smallBlind: number;
+		bigBlind: number;
 		showdown?: boolean;
 		children?: import('svelte').Snippet;
 	}
@@ -26,9 +28,27 @@
 		pots,
 		phase,
 		holeCards,
+		smallBlind,
+		bigBlind,
 		showdown = false,
 		children
 	}: Props = $props();
+
+	// Calculate SB and BB positions based on dealer
+	// In heads-up: dealer is SB, other player is BB
+	// In 3+ players: SB is dealer+1, BB is dealer+2
+	function getBlindPositions(dealerIdx: number, playerCount: number): { sbIndex: number; bbIndex: number } {
+		if (playerCount === 2) {
+			return {
+				sbIndex: dealerIdx,
+				bbIndex: (dealerIdx + 1) % playerCount
+			};
+		}
+		return {
+			sbIndex: (dealerIdx + 1) % playerCount,
+			bbIndex: (dealerIdx + 2) % playerCount
+		};
+	}
 
 	// Rotate players so current player (myId) is always at bottom
 	function rotatePlayersToMe(allPlayers: PublicPlayer[], myPlayerId: string | null): { player: PublicPlayer; originalIndex: number }[] {
@@ -53,11 +73,9 @@
 
 	// Get position class based on player count and index in rotated array
 	function getPositionClass(index: number, total: number): 'bottom' | 'top' | 'left' | 'right' | 'top-left' | 'top-right' {
-		if (index === 0) return 'bottom'; // Always me at bottom
+		if (index === 0) return 'bottom';
 
-		if (total === 2) {
-			return 'top';
-		}
+		if (total === 2) return 'top';
 
 		if (total === 3) {
 			return index === 1 ? 'top-left' : 'top-right';
@@ -85,40 +103,64 @@
 	}
 
 	let rotatedPlayers = $derived(rotatePlayersToMe(players, myId));
-
 	let totalPot = $derived(pots.reduce((sum, pot) => sum + pot.amount, 0));
+	let blindPositions = $derived(getBlindPositions(dealerIndex, players.length));
 
-	// Get hole cards for a player (only current player gets their actual cards)
+	// Get hole cards for a player
 	function getPlayerHoleCards(player: PublicPlayer): CardType[] {
-		if (player.id === myId) {
-			return holeCards;
-		}
-		// For other players, we don't have their cards (they're private)
+		if (player.id === myId) return holeCards;
 		return [];
 	}
 
-	// Determine if we should show cards face-up
 	function shouldShowCards(player: PublicPlayer): boolean {
 		if (player.id === myId) return true;
-		// During showdown non-folded players would have cards revealed, but
-		// the server would need to send them - for now we just show card backs
 		return false;
 	}
 
-	// Check if player has cards (using cardCount for other players)
 	function hasCards(player: PublicPlayer): boolean {
 		if (player.id === myId) return holeCards.length > 0;
 		return player.cardCount > 0;
 	}
+
+	function getPlayerRole(originalIndex: number): 'dealer' | 'sb' | 'bb' | null {
+		if (originalIndex === dealerIndex) return 'dealer';
+		if (originalIndex === blindPositions.sbIndex) return 'sb';
+		if (originalIndex === blindPositions.bbIndex) return 'bb';
+		return null;
+	}
 </script>
 
-<div class="poker-table animated-bg">
-	<!-- CRT overlay -->
-	<div class="crt-overlay"></div>
+<div class="poker-table-wrapper">
+	<!-- Player seats positioned around the table -->
+	<div class="player-positions" data-player-count={players.length}>
+		{#each rotatedPlayers as { player, originalIndex }, viewIndex (player.id)}
+			{@const position = getPositionClass(viewIndex, players.length)}
+			{@const isActive = originalIndex === activePlayerIndex}
+			{@const role = getPlayerRole(originalIndex)}
+			{@const playerHoleCards = getPlayerHoleCards(player)}
+			{@const showCards = shouldShowCards(player)}
+			{@const playerHasCards = hasCards(player)}
 
-	<!-- Table felt area -->
+			<div class="seat-wrapper" data-position={position}>
+				<PlayerSeat
+					{player}
+					isMe={player.id === myId}
+					{isActive}
+					isDealer={role === 'dealer'}
+					isSB={role === 'sb'}
+					isBB={role === 'bb'}
+					holeCards={playerHoleCards}
+					{showCards}
+					hasCards={playerHasCards}
+					{position}
+					animate={phase !== 'waiting'}
+				/>
+			</div>
+		{/each}
+	</div>
+
+	<!-- Table felt area (centered) -->
 	<div class="table-felt">
-		<!-- Community cards and pot -->
 		<div class="table-center">
 			<div class="community-cards">
 				{#each communityCards as card, i (i)}
@@ -126,7 +168,7 @@
 				{/each}
 				{#if communityCards.length === 0 && phase !== 'waiting'}
 					<div class="cards-placeholder">
-						<span class="placeholder-text">Community Cards</span>
+						<span class="placeholder-text">Waiting for cards...</span>
 					</div>
 				{/if}
 			</div>
@@ -138,35 +180,9 @@
 				</div>
 			{/if}
 		</div>
-
-		<!-- Player seats positioned around table -->
-		<div class="player-positions" data-player-count={players.length}>
-			{#each rotatedPlayers as { player, originalIndex }, viewIndex (player.id)}
-				{@const position = getPositionClass(viewIndex, players.length)}
-				{@const isActive = originalIndex === activePlayerIndex}
-				{@const isDealer = originalIndex === dealerIndex}
-				{@const playerHoleCards = getPlayerHoleCards(player)}
-				{@const showCards = shouldShowCards(player)}
-				{@const playerHasCards = hasCards(player)}
-
-				<div class="seat-wrapper" data-position={position}>
-					<PlayerSeat
-						{player}
-						isMe={player.id === myId}
-						{isActive}
-						{isDealer}
-						holeCards={playerHoleCards}
-						{showCards}
-						hasCards={playerHasCards}
-						{position}
-						animate={phase !== 'waiting'}
-					/>
-				</div>
-			{/each}
-		</div>
 	</div>
 
-	<!-- Slot for controls/overlays -->
+	<!-- Slot for hand results overlay -->
 	{#if children}
 		<div class="table-overlay">
 			{@render children()}
@@ -175,28 +191,33 @@
 </div>
 
 <style>
-	.poker-table {
+	.poker-table-wrapper {
 		position: relative;
 		width: 100%;
 		min-height: 500px;
-		padding: var(--space-4);
-		border-radius: var(--card-border-radius);
-		overflow: hidden;
-	}
-
-	.table-felt {
-		position: relative;
-		width: 100%;
-		height: 100%;
-		min-height: 480px;
-		background: radial-gradient(ellipse at center, #1a3a3a 0%, #0d1a1c 100%);
-		border: 4px solid var(--border-color);
-		border-radius: 50% / 30%;
-		padding: var(--space-6);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+	}
+
+	/* Table felt - the green oval in the center */
+	.table-felt {
+		position: relative;
+		width: 80%;
+		max-width: 500px;
+		min-height: 200px;
+		background: radial-gradient(ellipse at center, #1a3a3a 0%, #0d1a1c 100%);
+		border: 6px solid var(--border-color);
+		border-radius: 50% / 40%;
+		padding: var(--space-6);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow:
+			inset 0 0 30px rgba(0, 0, 0, 0.5),
+			0 0 20px rgba(0, 0, 0, 0.3);
+		z-index: 1;
 	}
 
 	.table-center {
@@ -204,7 +225,6 @@
 		flex-direction: column;
 		align-items: center;
 		gap: var(--space-3);
-		z-index: var(--z-cards);
 	}
 
 	.community-cards {
@@ -219,11 +239,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 200px;
-		height: 84px;
-		border: 2px dashed var(--border-color);
+		min-width: 150px;
+		height: 60px;
+		border: 2px dashed rgba(255, 255, 255, 0.2);
 		border-radius: var(--card-border-radius);
-		opacity: 0.3;
 	}
 
 	.placeholder-text {
@@ -257,11 +276,12 @@
 		font-weight: bold;
 	}
 
-	/* Player positioning system */
+	/* Player positioning - seats around the table, outside the felt */
 	.player-positions {
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
+		z-index: 10;
 	}
 
 	.seat-wrapper {
@@ -270,75 +290,67 @@
 		transition: all var(--anim-normal) ease;
 	}
 
-	/* Bottom - current player */
+	/* Bottom - current player (below the table) */
 	.seat-wrapper[data-position="bottom"] {
-		bottom: 10px;
+		bottom: 0;
 		left: 50%;
 		transform: translateX(-50%);
 	}
 
-	/* Top - opponent in 2-player */
+	/* Top - opponent (above the table) */
 	.seat-wrapper[data-position="top"] {
-		top: 10px;
+		top: 0;
 		left: 50%;
 		transform: translateX(-50%);
 	}
 
 	/* Left side */
 	.seat-wrapper[data-position="left"] {
-		left: 10px;
+		left: 0;
 		top: 50%;
 		transform: translateY(-50%);
 	}
 
 	/* Right side */
 	.seat-wrapper[data-position="right"] {
-		right: 10px;
+		right: 0;
 		top: 50%;
 		transform: translateY(-50%);
 	}
 
 	/* Top-left */
 	.seat-wrapper[data-position="top-left"] {
-		top: 20%;
-		left: 15%;
+		top: 10%;
+		left: 5%;
 	}
 
 	/* Top-right */
 	.seat-wrapper[data-position="top-right"] {
-		top: 20%;
-		right: 15%;
+		top: 10%;
+		right: 5%;
 	}
 
 	.table-overlay {
 		position: relative;
-		z-index: var(--z-controls);
-		margin-top: var(--space-4);
+		z-index: 20;
+		width: 100%;
 	}
 
 	/* Responsive adjustments */
 	@media (max-width: 600px) {
-		.poker-table {
-			padding: var(--space-2);
+		.poker-table-wrapper {
+			min-height: 450px;
 		}
 
 		.table-felt {
-			min-height: 400px;
+			width: 70%;
+			min-height: 150px;
 			padding: var(--space-4);
-			border-radius: 30% / 20%;
 		}
 
 		.seat-wrapper[data-position="left"],
 		.seat-wrapper[data-position="right"] {
 			display: none;
-		}
-
-		.seat-wrapper[data-position="top-left"] {
-			left: 5%;
-		}
-
-		.seat-wrapper[data-position="top-right"] {
-			right: 5%;
 		}
 	}
 </style>

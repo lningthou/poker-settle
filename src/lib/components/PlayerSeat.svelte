@@ -8,6 +8,8 @@
 		isMe?: boolean;
 		isActive?: boolean;
 		isDealer?: boolean;
+		isSB?: boolean;
+		isBB?: boolean;
 		holeCards?: CardType[];
 		showCards?: boolean;
 		hasCards?: boolean;
@@ -20,6 +22,8 @@
 		isMe = false,
 		isActive = false,
 		isDealer = false,
+		isSB = false,
+		isBB = false,
 		holeCards = [],
 		showCards = false,
 		hasCards = false,
@@ -65,9 +69,17 @@
 			<span class="player-name" class:truncate={player.name.length > 10}>
 				{player.name}
 			</span>
-			{#if isDealer}
-				<span class="dealer-badge">D</span>
-			{/if}
+			<div class="badges">
+				{#if isDealer}
+					<span class="badge dealer-badge">D</span>
+				{/if}
+				{#if isSB}
+					<span class="badge sb-badge">SB</span>
+				{/if}
+				{#if isBB}
+					<span class="badge bb-badge">BB</span>
+				{/if}
+			</div>
 		</div>
 
 		<div class="chips-row">
@@ -174,18 +186,41 @@
 		white-space: nowrap;
 	}
 
-	.dealer-badge {
-		background: var(--accent-gold);
-		color: #1a1a1a;
-		font-size: 11px;
+	.badges {
+		display: flex;
+		gap: 2px;
+	}
+
+	.badge {
+		font-size: 10px;
 		font-weight: bold;
-		width: 18px;
+		min-width: 18px;
 		height: 18px;
-		border-radius: 50%;
+		border-radius: 4px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		padding: 0 4px;
+	}
+
+	.dealer-badge {
+		background: var(--accent-gold);
+		color: #1a1a1a;
+		border-radius: 50%;
+		padding: 0;
 		box-shadow: 0 2px 0 #b8893a;
+	}
+
+	.sb-badge {
+		background: var(--accent-blue);
+		color: white;
+		box-shadow: 0 2px 0 #0080cc;
+	}
+
+	.bb-badge {
+		background: var(--accent-red);
+		color: white;
+		box-shadow: 0 2px 0 #d94a40;
 	}
 
 	.chips-row {
