@@ -202,6 +202,8 @@ describe('Hand Evaluation', () => {
 		expect(winners).toHaveLength(1);
 		expect(winners[0].winnerIds).toContain('p1');
 		expect(winners[0].amount).toBe(200);
+		expect(winners[0].handDescriptions['p1']).toBeTruthy();
+		expect(winners[0].handDescriptions['p2']).toBeTruthy();
 	});
 
 	it('should handle split pot', () => {
@@ -241,7 +243,7 @@ describe('Winnings Distribution', () => {
 		const state = createGameState(players, 1, 2);
 		state.pots = [{ amount: 200, eligible: ['p1', 'p2'] }];
 
-		distributeWinnings(state, [{ potIndex: 0, winnerIds: ['p1'], amount: 200 }]);
+		distributeWinnings(state, [{ potIndex: 0, winnerIds: ['p1'], amount: 200, handDescriptions: {} }]);
 
 		expect(state.players[0].chips).toBe(200);
 		expect(state.players[1].chips).toBe(0);
@@ -252,7 +254,7 @@ describe('Winnings Distribution', () => {
 		const state = createGameState(players, 1, 2);
 		state.pots = [{ amount: 200, eligible: ['p1', 'p2'] }];
 
-		distributeWinnings(state, [{ potIndex: 0, winnerIds: ['p1', 'p2'], amount: 200 }]);
+		distributeWinnings(state, [{ potIndex: 0, winnerIds: ['p1', 'p2'], amount: 200, handDescriptions: {} }]);
 
 		expect(state.players[0].chips).toBe(100);
 		expect(state.players[1].chips).toBe(100);
@@ -263,7 +265,7 @@ describe('Winnings Distribution', () => {
 		const state = createGameState(players, 1, 2);
 		state.pots = [{ amount: 100, eligible: ['p1', 'p2', 'p3'] }];
 
-		distributeWinnings(state, [{ potIndex: 0, winnerIds: ['p1', 'p2', 'p3'], amount: 100 }]);
+		distributeWinnings(state, [{ potIndex: 0, winnerIds: ['p1', 'p2', 'p3'], amount: 100, handDescriptions: {} }]);
 
 		expect(state.players[0].chips).toBe(34); // 33 + 1 remainder
 		expect(state.players[1].chips).toBe(33);

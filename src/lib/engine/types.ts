@@ -57,4 +57,5 @@ export interface PotWinner {
 	potIndex: number;
 	winnerIds: string[];
 	amount: number;
+	handDescriptions: Record<string, string>; // playerId → hand description for all evaluated players
 }

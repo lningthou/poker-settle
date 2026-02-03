@@ -346,7 +346,8 @@ export function evaluateHands(state: GameState): PotWinner[] {
 			potWinners.push({
 				potIndex: i,
 				winnerIds: eligible,
-				amount: pot.amount
+				amount: pot.amount,
+				handDescriptions: {}
 			});
 			continue;
 		}
@@ -365,10 +366,16 @@ export function evaluateHands(state: GameState): PotWinner[] {
 
 		const winnerIds = hands.filter((h) => winners.includes(h.hand)).map((h) => h.id);
 
+		const handDescriptions: Record<string, string> = {};
+		for (const h of hands) {
+			handDescriptions[h.id] = h.hand.descr;
+		}
+
 		potWinners.push({
 			potIndex: i,
 			winnerIds,
-			amount: pot.amount
+			amount: pot.amount,
+			handDescriptions
 		});
 	}
 

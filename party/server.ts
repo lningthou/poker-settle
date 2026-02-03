@@ -452,7 +452,7 @@ export default class PokerRoom implements Party.Server {
 			const results = potWinners.flatMap((pw) =>
 				pw.winnerIds.map((id) => ({
 					playerId: id,
-					hand: '',
+					hand: pw.handDescriptions[id] ?? '',
 					amount: Math.floor(pw.amount / pw.winnerIds.length)
 				}))
 			);
