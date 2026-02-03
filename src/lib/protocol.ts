@@ -53,6 +53,7 @@ export type ServerMessage =
 			communityCards: Card[];
 			pots: Pot[];
 			currentBet: number;
+			minRaise: number;
 			dealerIndex: number;
 			activePlayerIndex: number;
 			smallBlind: number;

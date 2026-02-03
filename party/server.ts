@@ -612,6 +612,7 @@ export default class PokerRoom implements Party.Server {
 			communityCards: this.gameState?.communityCards ?? [],
 			pots: this.gameState?.pots ?? [],
 			currentBet: this.gameState?.currentBet ?? 0,
+			minRaise: this.gameState?.minRaise ?? this.gameState?.bigBlind ?? 0,
 			dealerIndex: this.gameState?.dealerIndex ?? 0,
 			activePlayerIndex: this.gameState?.activePlayerIndex ?? 0,
 			smallBlind: this.gameState?.smallBlind ?? 0,

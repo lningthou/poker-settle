@@ -13,6 +13,7 @@
 		communityCards,
 		pots,
 		currentBet,
+		minRaise,
 		dealerIndex,
 		activePlayerIndex,
 		smallBlind,
@@ -172,7 +173,7 @@
 		showBetPanel = !showBetPanel;
 		if (showBetPanel) {
 			// Default to min raise
-			raiseAmount = $bigBlind;
+			raiseAmount = $minRaise || $bigBlind;
 		}
 	}
 
@@ -181,9 +182,10 @@
 		const me = $myPlayer;
 		if (!me) return;
 
+		const minBet = $minRaise || $bigBlind;
 		const betAmount = Math.floor(pot * fraction);
 		// Clamp between min raise and max (all chips)
-		raiseAmount = Math.max($bigBlind, Math.min(betAmount, me.chips));
+		raiseAmount = Math.max(minBet, Math.min(betAmount, me.chips));
 	}
 
 	function handleAllIn() {
@@ -437,18 +439,18 @@
 							<div class="bet-slider">
 								<input
 									type="range"
-									min={$bigBlind}
+									min={$minRaise || $bigBlind}
 									max={$myPlayer?.chips ?? 0}
 									step={$bigBlind}
 									bind:value={raiseAmount}
 								/>
 								<div class="slider-labels">
-									<span>{$bigBlind}</span>
+									<span>{$minRaise || $bigBlind}</span>
 									<span>{$myPlayer?.chips ?? 0}</span>
 								</div>
 							</div>
 							<div class="bet-confirm">
-								<input type="number" bind:value={raiseAmount} min={$bigBlind} />
+								<input type="number" bind:value={raiseAmount} min={$minRaise || $bigBlind} />
 								<button class="btn btn-gold" onclick={handleRaise} disabled={raiseAmount <= 0}>
 									{$currentBet > 0 ? 'Raise' : 'Bet'} {raiseAmount}
 								</button>

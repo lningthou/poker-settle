@@ -13,6 +13,7 @@ export const players = writable<PublicPlayer[]>([]);
 export const communityCards = writable<Card[]>([]);
 export const pots = writable<Pot[]>([]);
 export const currentBet = writable(0);
+export const minRaise = writable(0);
 export const dealerIndex = writable(0);
 export const activePlayerIndex = writable(0);
 export const smallBlind = writable(0);
@@ -97,6 +98,7 @@ function resetStores() {
 	communityCards.set([]);
 	pots.set([]);
 	currentBet.set(0);
+	minRaise.set(0);
 	holeCards.set([]);
 	errorMessage.set(null);
 	handResult.set(null);
@@ -124,6 +126,7 @@ function handleMessage(msg: ServerMessage) {
 			communityCards.set(msg.communityCards);
 			pots.set(msg.pots);
 			currentBet.set(msg.currentBet);
+			minRaise.set(msg.minRaise);
 			dealerIndex.set(msg.dealerIndex);
 			activePlayerIndex.set(msg.activePlayerIndex);
 			smallBlind.set(msg.smallBlind);
