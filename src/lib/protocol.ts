@@ -13,7 +13,8 @@ export type ClientMessage =
 	| { type: 'action'; action: ActionType; amount?: number }
 	| { type: 'next-hand' }
 	| { type: 'end-session' }
-	| { type: 'rebuy'; amount: number };
+	| { type: 'rebuy'; amount: number }
+	| { type: 'kick'; targetId: string };
 
 // ─── Server → Client Messages ───────────────────────────────────
 

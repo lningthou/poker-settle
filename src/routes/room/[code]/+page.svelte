@@ -34,7 +34,8 @@
 		allIn,
 		nextHand,
 		rebuy,
-		endSession
+		endSession,
+		kickPlayer
 	} from '$lib/stores/game';
 	import type { Card } from '$lib/engine/types';
 
@@ -52,7 +53,7 @@
 			goto('/');
 			return;
 		}
-		connect(PARTY_HOST, page.params.code, name);
+		connect(PARTY_HOST, page.params.code!, name);
 	});
 
 	onDestroy(() => {
@@ -66,7 +67,7 @@
 	}
 
 	function cardColor(card: Card): string {
-		return card.suit === 'h' || card.suit === 'd' ? '#e94560' : '#eee';
+		return card.suit === 'h' || card.suit === 'd' ? '#e94560' : '#222';
 	}
 
 	function shareLink(): string {
@@ -151,6 +152,13 @@
 					<div class="player-chip">
 						{player.name}
 						{#if player.id === $hostId}(host){/if}
+						{#if $isHost && player.id !== $playerId}
+							<button
+								class="kick-btn"
+								onclick={() => kickPlayer(player.id)}
+								title="Remove player"
+							>&times;</button>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -159,16 +167,28 @@
 				<div class="game-config">
 					<h3>Game Setup</h3>
 					<div class="config-row">
-						<label>Buy-in</label>
-						<input type="number" bind:value={buyInAmount} min="100" step="100" />
+						<label for="buyin">Buy-in</label>
+						<div class="stepper">
+							<button class="step-btn" onclick={() => (buyInAmount = Math.max(100, buyInAmount - 100))}>-</button>
+							<input id="buyin" type="number" bind:value={buyInAmount} min="100" step="100" />
+							<button class="step-btn" onclick={() => (buyInAmount += 100)}>+</button>
+						</div>
 					</div>
 					<div class="config-row">
-						<label>Small Blind</label>
-						<input type="number" bind:value={sbAmount} min="1" />
+						<label for="sb">Small Blind</label>
+						<div class="stepper">
+							<button class="step-btn" onclick={() => (sbAmount = Math.max(1, sbAmount - 1))}>-</button>
+							<input id="sb" type="number" bind:value={sbAmount} min="1" />
+							<button class="step-btn" onclick={() => (sbAmount += 1)}>+</button>
+						</div>
 					</div>
 					<div class="config-row">
-						<label>Big Blind</label>
-						<input type="number" bind:value={bbAmount} min="2" />
+						<label for="bb">Big Blind</label>
+						<div class="stepper">
+							<button class="step-btn" onclick={() => (bbAmount = Math.max(2, bbAmount - 1))}>-</button>
+							<input id="bb" type="number" bind:value={bbAmount} min="2" />
+							<button class="step-btn" onclick={() => (bbAmount += 1)}>+</button>
+						</div>
 					</div>
 					<button
 						class="btn primary"
@@ -368,6 +388,30 @@
 		border: 1px solid #333;
 		border-radius: 20px;
 		font-size: 0.875rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		position: relative;
+	}
+
+	.kick-btn {
+		display: none;
+		width: 20px;
+		height: 20px;
+		border: none;
+		border-radius: 50%;
+		background: #e94560;
+		color: #fff;
+		font-size: 0.875rem;
+		line-height: 1;
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.player-chip:hover .kick-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.game-config {
@@ -395,13 +439,52 @@
 	}
 
 	.config-row input {
-		width: 120px;
+		width: 80px;
 		padding: 0.5rem;
-		border: 1px solid #333;
+		border: 1px solid #444;
 		border-radius: 6px;
 		background: #1a1a2e;
 		color: #fff;
-		text-align: right;
+		text-align: center;
+		font-size: 1rem;
+		font-weight: 600;
+		-moz-appearance: textfield;
+	}
+
+	.config-row input::-webkit-outer-spin-button,
+	.config-row input::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	.stepper {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.step-btn {
+		width: 36px;
+		height: 36px;
+		border: 1px solid #444;
+		border-radius: 6px;
+		background: #253356;
+		color: #fff;
+		font-size: 1.25rem;
+		font-weight: 600;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
+	}
+
+	.step-btn:hover {
+		background: #2e4070;
+	}
+
+	.step-btn:active {
+		background: #1a2745;
 	}
 
 	.waiting-text {

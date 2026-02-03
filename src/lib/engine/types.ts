@@ -44,6 +44,7 @@ export interface GameState {
 	smallBlind: number;
 	bigBlind: number;
 	lastRaiserIndex: number | null; // tracks who last raised to know when round ends
+	roundStartIndex: number; // who started acting this betting round (round ends when action returns here)
 }
 
 export interface HandResult {

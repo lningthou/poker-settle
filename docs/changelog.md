@@ -46,3 +46,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   - Hand result display
   - Settlement screen showing who pays whom
 - Mobile-first responsive layout
+- Host can kick players from lobby (X button on hover)
+- Comprehensive server-side logging for debugging
+
+### Fixed
+- Betting round logic: players were being skipped because `isBettingRoundOver` returned true after a single check (added `roundStartIndex` tracking so the round only ends when action returns to the starting player or last raiser)
+
+### Changed
+- Card colors: spades and clubs now render in black (was gray, hard to see on white cards)
+- Config inputs: added +/- stepper buttons with better visibility and sizing

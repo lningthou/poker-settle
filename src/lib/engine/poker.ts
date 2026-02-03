@@ -32,7 +32,8 @@ export function createGameState(
 		activePlayerIndex: 0,
 		smallBlind,
 		bigBlind,
-		lastRaiserIndex: null
+		lastRaiserIndex: null,
+		roundStartIndex: 0
 	};
 }
 
@@ -124,7 +125,9 @@ export function startHand(state: GameState, deck: Deck): GameState {
 
 	// First to act preflop is after big blind
 	state.activePlayerIndex = nextActiveIndex(state, bigBlindIndex(state));
-	state.lastRaiserIndex = bigBlindIndex(state); // BB acts as "raiser" for preflop orbit
+	// Round starts at the first actor — round ends when action returns here
+	state.roundStartIndex = state.activePlayerIndex;
+	state.lastRaiserIndex = null;
 
 	return state;
 }
@@ -208,6 +211,7 @@ function advancePhase(state: GameState, deck: Deck): void {
 
 	// First to act post-flop is first active player after dealer
 	state.activePlayerIndex = nextActiveIndex(state, state.dealerIndex);
+	state.roundStartIndex = state.activePlayerIndex;
 
 	// If all remaining players are all-in, skip to showdown
 	if (playersInHand(state).length <= 1) {
@@ -221,14 +225,13 @@ function isBettingRoundOver(state: GameState): boolean {
 
 	// Everyone has matched the bet or gone all-in
 	const allMatched = inHand.every((p) => p.bet === state.currentBet);
+	if (!allMatched) return false;
 
-	// If no one has raised yet (lastRaiserIndex is null and we've gone around)
-	// or we're back to the last raiser
-	if (state.lastRaiserIndex === null) {
-		return allMatched;
-	}
-
-	return allMatched && state.activePlayerIndex === state.lastRaiserIndex;
+	// The round ends when action returns to the "closer":
+	// - If someone raised, the closer is the raiser
+	// - If no one raised, the closer is the round starter (first to act)
+	const closer = state.lastRaiserIndex ?? state.roundStartIndex;
+	return state.activePlayerIndex === closer;
 }
 
 export function applyAction(state: GameState, playerId: string, action: Action, deck: Deck): GameState {

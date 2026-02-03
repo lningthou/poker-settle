@@ -19,6 +19,38 @@ interface PlayerMeta {
 	buyIn: number; // total money put in
 }
 
+function log(room: string, ...args: unknown[]) {
+	console.log(`[room:${room}]`, ...args);
+}
+
+function logState(room: string, label: string, state: GameState) {
+	const playerSummary = state.players.map((p) => ({
+		id: p.id,
+		name: p.name,
+		chips: p.chips,
+		bet: p.bet,
+		totalBet: p.totalBet,
+		folded: p.folded,
+		allIn: p.allIn,
+		sittingOut: p.sittingOut
+	}));
+	console.log(
+		`[room:${room}] ${label}:`,
+		JSON.stringify({
+			phase: state.phase,
+			activePlayerIndex: state.activePlayerIndex,
+			activePlayer: state.players[state.activePlayerIndex]?.id,
+			currentBet: state.currentBet,
+			roundStartIndex: state.roundStartIndex,
+			lastRaiserIndex: state.lastRaiserIndex,
+			dealerIndex: state.dealerIndex,
+			communityCards: state.communityCards.length,
+			pots: state.pots.map((p) => ({ amount: p.amount, eligible: p.eligible })),
+			players: playerSummary
+		}, null, 2)
+	);
+}
+
 export default class PokerRoom implements Party.Server {
 	private gameState: GameState | null = null;
 	private deck: Deck = new Deck();
@@ -31,16 +63,16 @@ export default class PokerRoom implements Party.Server {
 	constructor(readonly room: Party.Room) {}
 
 	onConnect(connection: Party.Connection, ctx: Party.ConnectionContext) {
-		// Don't do anything until they send a "join" message
+		log(this.room.id, `connection opened: ${connection.id}`);
 	}
 
 	onClose(connection: Party.Connection) {
 		const playerId = this.connectionToPlayer.get(connection.id);
+		log(this.room.id, `connection closed: ${connection.id}, playerId: ${playerId}`);
 		if (!playerId) return;
 
 		const meta = this.playerMeta.get(playerId);
 		if (meta) {
-			// Mark as disconnected but don't remove (they can reconnect)
 			meta.connectionId = '';
 
 			if (this.gameState) {
@@ -48,18 +80,22 @@ export default class PokerRoom implements Party.Server {
 				if (player) {
 					player.sittingOut = true;
 
-					// If it was their turn, auto-fold
 					if (
 						this.gameState.activePlayerIndex ===
 						this.gameState.players.indexOf(player)
 					) {
 						if (!player.folded && !player.allIn) {
+							log(this.room.id, `auto-folding disconnected player ${playerId}`);
 							applyAction(
 								this.gameState,
 								playerId,
 								{ type: 'fold' },
 								this.deck
 							);
+
+							if (this.gameState.phase === 'complete') {
+								this.resolveHand();
+							}
 						}
 					}
 				}
@@ -83,6 +119,9 @@ export default class PokerRoom implements Party.Server {
 			return;
 		}
 
+		const senderId = this.connectionToPlayer.get(sender.id);
+		log(this.room.id, `message from ${senderId ?? sender.id}: ${msg.type}`, JSON.stringify(msg));
+
 		switch (msg.type) {
 			case 'join':
 				this.handleJoin(sender, msg.name);
@@ -102,16 +141,17 @@ export default class PokerRoom implements Party.Server {
 			case 'rebuy':
 				this.handleRebuy(sender, msg.amount);
 				break;
+			case 'kick':
+				this.handleKick(sender, msg.targetId);
+				break;
 		}
 	}
 
 	private handleJoin(connection: Party.Connection, name: string) {
-		// Check if this is a reconnection (same name)
 		let playerId: string | null = null;
 
 		for (const [pid, meta] of this.playerMeta.entries()) {
 			if (meta.name === name && meta.connectionId === '') {
-				// Reconnecting player
 				playerId = pid;
 				meta.connectionId = connection.id;
 				this.connectionToPlayer.set(connection.id, pid);
@@ -120,12 +160,12 @@ export default class PokerRoom implements Party.Server {
 					const player = this.gameState.players.find((p) => p.id === pid);
 					if (player) player.sittingOut = false;
 				}
+				log(this.room.id, `player reconnected: ${name} as ${pid}`);
 				break;
 			}
 		}
 
 		if (!playerId) {
-			// New player
 			if (this.gameStarted && this.gameState?.phase !== 'waiting') {
 				this.sendTo(connection, {
 					type: 'error',
@@ -144,11 +184,11 @@ export default class PokerRoom implements Party.Server {
 			});
 			this.connectionToPlayer.set(connection.id, playerId);
 
-			// First player is the host
 			if (!this.hostId) {
 				this.hostId = playerId;
 			}
 
+			log(this.room.id, `new player joined: ${name} as ${playerId}, host: ${this.hostId}`);
 			this.broadcast({ type: 'player-joined', name });
 		}
 
@@ -160,7 +200,6 @@ export default class PokerRoom implements Party.Server {
 
 		this.broadcastState();
 
-		// Send private hole cards if game is in progress
 		if (this.gameState) {
 			const player = this.gameState.players.find((p) => p.id === playerId);
 			if (player && player.holeCards.length > 0) {
@@ -189,21 +228,22 @@ export default class PokerRoom implements Party.Server {
 			return;
 		}
 
-		// Create players with buy-in chips
 		const players: Player[] = [];
 		for (const [pid, meta] of this.playerMeta.entries()) {
 			if (meta.connectionId !== '') {
-				// only connected players
 				players.push(createPlayer(pid, meta.name, buyIn));
 				meta.buyIn = buyIn;
 			}
 		}
 
+		log(this.room.id, `starting game: buyIn=${buyIn}, sb=${smallBlind}, bb=${bigBlind}, players=${players.map((p) => p.id).join(',')}`);
+
 		this.gameState = createGameState(players, smallBlind, bigBlind);
 		this.gameStarted = true;
 
-		// Start the first hand
 		startHand(this.gameState, this.deck);
+
+		logState(this.room.id, 'hand started', this.gameState);
 
 		this.broadcastState();
 		this.sendPrivateCards();
@@ -222,6 +262,9 @@ export default class PokerRoom implements Party.Server {
 		const playerId = this.connectionToPlayer.get(connection.id);
 		if (!playerId) return;
 
+		const activePlayer = this.gameState.players[this.gameState.activePlayerIndex];
+		log(this.room.id, `action: ${playerId} wants to ${actionType}${amount !== undefined ? ` ${amount}` : ''}, active=${activePlayer?.id}[${this.gameState.activePlayerIndex}], phase=${this.gameState.phase}, currentBet=${this.gameState.currentBet}`);
+
 		try {
 			applyAction(
 				this.gameState,
@@ -230,11 +273,13 @@ export default class PokerRoom implements Party.Server {
 				this.deck
 			);
 		} catch (err: any) {
+			log(this.room.id, `action error: ${err.message}`);
 			this.sendTo(connection, { type: 'error', message: err.message });
 			return;
 		}
 
-		// Check if hand is complete
+		logState(this.room.id, `after ${actionType}`, this.gameState);
+
 		if (this.gameState.phase === 'complete') {
 			this.resolveHand();
 		}
@@ -257,11 +302,8 @@ export default class PokerRoom implements Party.Server {
 			return;
 		}
 
-		// Remove players with 0 chips (they need to rebuy)
-		// Advance dealer
 		advanceDealer(this.gameState);
 
-		// Check enough players have chips
 		const playersWithChips = this.gameState.players.filter((p) => p.chips > 0 && !p.sittingOut);
 		if (playersWithChips.length < 2) {
 			this.sendTo(connection, {
@@ -271,12 +313,15 @@ export default class PokerRoom implements Party.Server {
 			return;
 		}
 
-		// Mark players with 0 chips as sitting out
 		for (const p of this.gameState.players) {
 			if (p.chips === 0) p.sittingOut = true;
 		}
 
 		startHand(this.gameState, this.deck);
+
+		log(this.room.id, `next hand started, dealer=${this.gameState.dealerIndex}`);
+		logState(this.room.id, 'new hand', this.gameState);
+
 		this.broadcastState();
 		this.sendPrivateCards();
 	}
@@ -288,7 +333,6 @@ export default class PokerRoom implements Party.Server {
 		const player = this.gameState.players.find((p) => p.id === playerId);
 		if (!player) return;
 
-		// Can only rebuy when hand is complete and player has 0 chips
 		if (this.gameState.phase !== 'complete' && this.gameState.phase !== 'waiting') {
 			this.sendTo(connection, { type: 'error', message: 'Can only rebuy between hands' });
 			return;
@@ -300,6 +344,46 @@ export default class PokerRoom implements Party.Server {
 		const meta = this.playerMeta.get(playerId);
 		if (meta) meta.buyIn += amount;
 
+		log(this.room.id, `rebuy: ${playerId} +${amount}, total buyIn=${meta?.buyIn}`);
+		this.broadcastState();
+	}
+
+	private handleKick(connection: Party.Connection, targetId: string) {
+		const playerId = this.connectionToPlayer.get(connection.id);
+		if (playerId !== this.hostId) {
+			this.sendTo(connection, { type: 'error', message: 'Only the host can kick players' });
+			return;
+		}
+
+		if (targetId === this.hostId) {
+			this.sendTo(connection, { type: 'error', message: 'Cannot kick yourself' });
+			return;
+		}
+
+		// Only allow kicking in lobby
+		if (this.gameStarted && this.gameState?.phase !== 'waiting') {
+			this.sendTo(connection, { type: 'error', message: 'Can only kick players in the lobby' });
+			return;
+		}
+
+		const meta = this.playerMeta.get(targetId);
+		if (!meta) return;
+
+		log(this.room.id, `kicking player: ${targetId} (${meta.name})`);
+
+		// Close their connection
+		if (meta.connectionId) {
+			const conn = this.room.getConnection(meta.connectionId);
+			if (conn) {
+				this.sendTo(conn, { type: 'error', message: 'You have been removed from the room' });
+				conn.close();
+			}
+			this.connectionToPlayer.delete(meta.connectionId);
+		}
+
+		this.playerMeta.delete(targetId);
+
+		this.broadcast({ type: 'player-left', name: meta.name });
 		this.broadcastState();
 	}
 
@@ -315,7 +399,6 @@ export default class PokerRoom implements Party.Server {
 
 		if (!this.gameState) return;
 
-		// Calculate settlement
 		const balances = this.gameState.players.map((p) => {
 			const meta = this.playerMeta.get(p.id)!;
 			return {
@@ -328,6 +411,8 @@ export default class PokerRoom implements Party.Server {
 
 		const payments = calculateSettlement(balances);
 
+		log(this.room.id, `session ended, settlement:`, JSON.stringify(payments));
+
 		this.broadcast({
 			type: 'settlement',
 			payments: payments.map((p) => ({
@@ -339,7 +424,6 @@ export default class PokerRoom implements Party.Server {
 			}))
 		});
 
-		// Reset game
 		this.gameState.phase = 'waiting';
 		this.gameStarted = false;
 		this.broadcastState();
@@ -351,31 +435,32 @@ export default class PokerRoom implements Party.Server {
 		const active = this.gameState.players.filter((p) => !p.folded && !p.sittingOut);
 
 		if (active.length === 1) {
-			// Everyone else folded — give pot to last player
 			const winner = active[0];
 			const totalPot = this.gameState.pots.reduce((sum, p) => sum + p.amount, 0);
 			winner.chips += totalPot;
+
+			log(this.room.id, `hand resolved: ${winner.id} wins ${totalPot} (last standing)`);
 
 			this.broadcast({
 				type: 'hand-result',
 				winners: [{ playerId: winner.id, hand: 'Last player standing', amount: totalPot }]
 			});
 		} else {
-			// Showdown
 			const potWinners = evaluateHands(this.gameState);
 			distributeWinnings(this.gameState, potWinners);
 
 			const results = potWinners.flatMap((pw) =>
 				pw.winnerIds.map((id) => ({
 					playerId: id,
-					hand: '', // Could extract from pokersolver if needed
+					hand: '',
 					amount: Math.floor(pw.amount / pw.winnerIds.length)
 				}))
 			);
 
+			log(this.room.id, `hand resolved (showdown):`, JSON.stringify(results));
+
 			this.broadcast({ type: 'hand-result', winners: results });
 
-			// Reveal all active players' cards at showdown
 			for (const player of active) {
 				this.broadcast({ type: 'private', holeCards: player.holeCards });
 			}

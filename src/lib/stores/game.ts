@@ -186,3 +186,7 @@ export function rebuy(amount: number) {
 export function endSession() {
 	send({ type: 'end-session' });
 }
+
+export function kickPlayer(targetId: string) {
+	send({ type: 'kick', targetId });
+}
