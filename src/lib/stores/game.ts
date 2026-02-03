@@ -27,6 +27,7 @@ export const settlement = writable<SettlementPayment[] | null>(null);
 export const nextHandCountdown = writable<number | null>(null);
 
 export interface ChatMessage {
+	senderId: string;
 	name: string;
 	message: string;
 	timestamp: number;
@@ -162,7 +163,7 @@ function handleMessage(msg: ServerMessage) {
 		case 'chat':
 			chatMessages.update((msgs) => [
 				...msgs.slice(-99), // keep last 100 messages
-				{ name: msg.name, message: msg.message, timestamp: Date.now() }
+				{ senderId: msg.senderId, name: msg.name, message: msg.message, timestamp: Date.now() }
 			]);
 			break;
 
@@ -175,8 +176,8 @@ function handleMessage(msg: ServerMessage) {
 
 // ─── Game Actions ───────────────────────────────────────────────
 
-export function startGame(buyIn: number, smallBlindAmount: number, bigBlindAmount: number) {
-	send({ type: 'start-game', buyIn, smallBlind: smallBlindAmount, bigBlind: bigBlindAmount });
+export function startGame(buyIn: number, smallBlindAmount: number, bigBlindAmount: number, buyInDollars: number) {
+	send({ type: 'start-game', buyIn, smallBlind: smallBlindAmount, bigBlind: bigBlindAmount, buyInDollars });
 }
 
 export function fold() {

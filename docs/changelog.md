@@ -50,6 +50,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Comprehensive server-side logging for debugging
 - Auto-advance to next hand with 4-second countdown after showdown
 - In-game chat feature (messages broadcast to all players in the room)
+- Buy-in amount in dollars for real-money settlement calculations
+- Chat messages now distinguish your own messages (red) from others (gray/white)
 
 ### Fixed
 - Betting round logic: players were being skipped because `isBettingRoundOver` returned true after a single check (added `roundStartIndex` tracking so the round only ends when action returns to the starting player or last raiser)

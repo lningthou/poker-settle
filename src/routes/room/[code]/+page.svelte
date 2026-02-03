@@ -44,6 +44,7 @@
 	const PARTY_HOST = 'localhost:1999';
 
 	let buyInAmount = $state(1000);
+	let buyInDollars = $state(10);
 	let sbAmount = $state(5);
 	let bbAmount = $state(10);
 	let raiseAmount = $state(0);
@@ -190,7 +191,15 @@
 				<div class="game-config">
 					<h3>Game Setup</h3>
 					<div class="config-row">
-						<label for="buyin">Buy-in</label>
+						<label for="buyindollars">Buy-in ($)</label>
+						<div class="stepper">
+							<button class="step-btn" onclick={() => (buyInDollars = Math.max(1, buyInDollars - 5))}>-</button>
+							<input id="buyindollars" type="number" bind:value={buyInDollars} min="1" step="5" />
+							<button class="step-btn" onclick={() => (buyInDollars += 5)}>+</button>
+						</div>
+					</div>
+					<div class="config-row">
+						<label for="buyin">Starting Chips</label>
 						<div class="stepper">
 							<button class="step-btn" onclick={() => (buyInAmount = Math.max(100, buyInAmount - 100))}>-</button>
 							<input id="buyin" type="number" bind:value={buyInAmount} min="100" step="100" />
@@ -215,7 +224,7 @@
 					</div>
 					<button
 						class="btn primary"
-						onclick={() => startGame(buyInAmount, sbAmount, bbAmount)}
+						onclick={() => startGame(buyInAmount, sbAmount, bbAmount, buyInDollars)}
 						disabled={$players.length < 2}
 					>
 						Start Game ({$players.length} players)
@@ -340,7 +349,7 @@
 			<div class="chat-section">
 				<div class="chat-messages" bind:this={chatContainer}>
 					{#each $chatMessages as msg}
-						<div class="chat-msg">
+						<div class="chat-msg" class:mine={msg.senderId === $playerId}>
 							<span class="chat-name">{msg.name}:</span>
 							<span class="chat-text">{msg.message}</span>
 						</div>
@@ -760,13 +769,21 @@
 	}
 
 	.chat-name {
-		color: #e94560;
+		color: #888;
 		font-weight: 600;
 		margin-right: 0.25rem;
 	}
 
+	.chat-msg.mine .chat-name {
+		color: #e94560;
+	}
+
 	.chat-text {
 		color: #ddd;
+	}
+
+	.chat-msg.mine .chat-text {
+		color: #fff;
 	}
 
 	.chat-empty {

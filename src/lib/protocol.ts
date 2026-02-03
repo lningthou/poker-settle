@@ -9,7 +9,7 @@ import type { ActionType, Card, Phase, Pot } from './engine/types';
 
 export type ClientMessage =
 	| { type: 'join'; name: string }
-	| { type: 'start-game'; buyIn: number; smallBlind: number; bigBlind: number }
+	| { type: 'start-game'; buyIn: number; smallBlind: number; bigBlind: number; buyInDollars: number }
 	| { type: 'action'; action: ActionType; amount?: number }
 	| { type: 'next-hand' }
 	| { type: 'end-session' }
@@ -66,5 +66,5 @@ export type ServerMessage =
 	| { type: 'settlement'; payments: SettlementPayment[] }
 	| { type: 'player-joined'; name: string }
 	| { type: 'player-left'; name: string }
-	| { type: 'chat'; name: string; message: string }
+	| { type: 'chat'; senderId: string; name: string; message: string }
 	| { type: 'next-hand-countdown'; seconds: number };

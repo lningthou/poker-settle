@@ -16,7 +16,8 @@ import { calculateSettlement } from '../src/lib/settlement';
 interface PlayerMeta {
 	name: string;
 	connectionId: string;
-	buyIn: number; // total money put in
+	buyIn: number; // total chips bought
+	buyInDollars: number; // total real money put in
 }
 
 function log(room: string, ...args: unknown[]) {
@@ -59,6 +60,7 @@ export default class PokerRoom implements Party.Server {
 	private hostId: string | null = null;
 	private playerCounter = 0;
 	private gameStarted = false;
+	private chipsPerDollar = 0; // chips / dollars rate for settlement
 
 	constructor(readonly room: Party.Room) {}
 
@@ -127,7 +129,7 @@ export default class PokerRoom implements Party.Server {
 				this.handleJoin(sender, msg.name);
 				break;
 			case 'start-game':
-				this.handleStartGame(sender, msg.buyIn, msg.smallBlind, msg.bigBlind);
+				this.handleStartGame(sender, msg.buyIn, msg.smallBlind, msg.bigBlind, msg.buyInDollars);
 				break;
 			case 'action':
 				this.handleAction(sender, msg.action, msg.amount);
@@ -183,7 +185,8 @@ export default class PokerRoom implements Party.Server {
 			this.playerMeta.set(playerId, {
 				name,
 				connectionId: connection.id,
-				buyIn: 0
+				buyIn: 0,
+				buyInDollars: 0
 			});
 			this.connectionToPlayer.set(connection.id, playerId);
 
@@ -215,7 +218,8 @@ export default class PokerRoom implements Party.Server {
 		connection: Party.Connection,
 		buyIn: number,
 		smallBlind: number,
-		bigBlind: number
+		bigBlind: number,
+		buyInDollars: number
 	) {
 		const playerId = this.connectionToPlayer.get(connection.id);
 		if (playerId !== this.hostId) {
@@ -231,15 +235,19 @@ export default class PokerRoom implements Party.Server {
 			return;
 		}
 
+		// Store chips-per-dollar rate for settlement
+		this.chipsPerDollar = buyInDollars > 0 ? buyIn / buyInDollars : 0;
+
 		const players: Player[] = [];
 		for (const [pid, meta] of this.playerMeta.entries()) {
 			if (meta.connectionId !== '') {
 				players.push(createPlayer(pid, meta.name, buyIn));
 				meta.buyIn = buyIn;
+				meta.buyInDollars = buyInDollars;
 			}
 		}
 
-		log(this.room.id, `starting game: buyIn=${buyIn}, sb=${smallBlind}, bb=${bigBlind}, players=${players.map((p) => p.id).join(',')}`);
+		log(this.room.id, `starting game: buyIn=${buyIn} chips ($${buyInDollars}), sb=${smallBlind}, bb=${bigBlind}, players=${players.map((p) => p.id).join(',')}`);
 
 		this.gameState = createGameState(players, smallBlind, bigBlind);
 		this.gameStarted = true;
@@ -345,9 +353,15 @@ export default class PokerRoom implements Party.Server {
 		player.sittingOut = false;
 
 		const meta = this.playerMeta.get(playerId);
-		if (meta) meta.buyIn += amount;
+		if (meta) {
+			meta.buyIn += amount;
+			// Convert chips to dollars for rebuy tracking
+			if (this.chipsPerDollar > 0) {
+				meta.buyInDollars += amount / this.chipsPerDollar;
+			}
+		}
 
-		log(this.room.id, `rebuy: ${playerId} +${amount}, total buyIn=${meta?.buyIn}`);
+		log(this.room.id, `rebuy: ${playerId} +${amount} chips, total buyIn=${meta?.buyIn} chips ($${meta?.buyInDollars})`);
 		this.broadcastState();
 	}
 
@@ -402,19 +416,22 @@ export default class PokerRoom implements Party.Server {
 
 		if (!this.gameState) return;
 
+		// Calculate in dollars if we have a rate, otherwise use chips
+		const useDollars = this.chipsPerDollar > 0;
+
 		const balances = this.gameState.players.map((p) => {
 			const meta = this.playerMeta.get(p.id)!;
 			return {
 				id: p.id,
 				name: meta.name,
-				buyIn: meta.buyIn,
-				cashOut: p.chips
+				buyIn: useDollars ? meta.buyInDollars : meta.buyIn,
+				cashOut: useDollars ? p.chips / this.chipsPerDollar : p.chips
 			};
 		});
 
 		const payments = calculateSettlement(balances);
 
-		log(this.room.id, `session ended, settlement:`, JSON.stringify(payments));
+		log(this.room.id, `session ended, settlement (${useDollars ? 'dollars' : 'chips'}):`, JSON.stringify(payments));
 
 		this.broadcast({
 			type: 'settlement',
@@ -423,7 +440,7 @@ export default class PokerRoom implements Party.Server {
 				fromId: p.fromId,
 				to: p.to,
 				toId: p.toId,
-				amount: p.amount
+				amount: Math.round(p.amount * 100) / 100 // Round to cents
 			}))
 		});
 
@@ -532,6 +549,7 @@ export default class PokerRoom implements Party.Server {
 
 		this.broadcast({
 			type: 'chat',
+			senderId: playerId,
 			name: meta.name,
 			message: cleanMessage
 		});
