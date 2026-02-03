@@ -44,7 +44,15 @@
 ### Milestone 5: Polish & Deploy
 **Status**: Current
 
-- [ ] Card deal / flip animations
+- [x] Balatro-style UI overhaul
+  - [x] Design system with color palette and pixel font (m6x11)
+  - [x] Card component with flip and deal animations
+  - [x] Player seat component with chip animations and status badges
+  - [x] Poker table with player rotation (current player always at bottom)
+  - [x] CRT scanline overlay and animated gradient background
+  - [x] Screen shake on wins
+  - [x] Pulsing glow on active player
+  - [x] Bouncy button interactions
 - [ ] Sound effects (toggle-able)
 - [ ] Edge case handling (disconnect mid-hand, player timeout)
 - [ ] Deploy frontend to Vercel

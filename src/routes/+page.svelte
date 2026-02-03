@@ -30,161 +30,214 @@
 	<title>Poker Settle</title>
 </svelte:head>
 
-<div class="container">
-	<h1>Poker Settle</h1>
-	<p class="subtitle">Play poker with friends. Settle up instantly.</p>
+<div class="home-wrapper animated-bg">
+	<div class="crt-overlay"></div>
 
-	{#if mode === 'home'}
-		<div class="form-group">
-			<label for="name">Your Name</label>
-			<input
-				id="name"
-				type="text"
-				bind:value={playerName}
-				placeholder="Enter your name"
-				maxlength="20"
-			/>
+	<div class="container">
+		<div class="logo-section">
+			<h1 class="logo">Poker Settle</h1>
+			<p class="subtitle">Play poker with friends. Settle up instantly.</p>
 		</div>
 
-		<div class="buttons">
-			<button class="btn primary" onclick={() => (mode = 'create')} disabled={!playerName.trim()}>
-				Create Room
-			</button>
-			<button
-				class="btn secondary"
-				onclick={() => (mode = 'join')}
-				disabled={!playerName.trim()}
-			>
-				Join Room
-			</button>
+		<div class="card-decoration">
+			<span class="deco-card hearts">A</span>
+			<span class="deco-card spades">K</span>
+			<span class="deco-card diamonds">Q</span>
+			<span class="deco-card clubs">J</span>
 		</div>
-	{:else if mode === 'create'}
-		<div class="form-group">
-			<p>Creating room as <strong>{playerName}</strong></p>
-		</div>
-		<div class="buttons">
-			<button class="btn primary" onclick={createRoom}>Create & Join</button>
-			<button class="btn secondary" onclick={() => (mode = 'home')}>Back</button>
-		</div>
-	{:else if mode === 'join'}
-		<div class="form-group">
-			<label for="code">Room Code</label>
-			<input
-				id="code"
-				type="text"
-				bind:value={roomCode}
-				placeholder="Enter 6-letter code"
-				maxlength="6"
-			/>
-		</div>
-		<div class="buttons">
-			<button class="btn primary" onclick={joinRoom} disabled={!roomCode.trim()}>Join</button>
-			<button class="btn secondary" onclick={() => (mode = 'home')}>Back</button>
-		</div>
-	{/if}
+
+		{#if mode === 'home'}
+			<div class="form-section panel slide-up">
+				<div class="form-group">
+					<label for="name">Your Name</label>
+					<input
+						id="name"
+						type="text"
+						bind:value={playerName}
+						placeholder="Enter your name"
+						maxlength="20"
+					/>
+				</div>
+
+				<div class="buttons">
+					<button
+						class="btn btn-primary"
+						onclick={() => (mode = 'create')}
+						disabled={!playerName.trim()}
+					>
+						Create Room
+					</button>
+					<button
+						class="btn btn-secondary"
+						onclick={() => (mode = 'join')}
+						disabled={!playerName.trim()}
+					>
+						Join Room
+					</button>
+				</div>
+			</div>
+		{:else if mode === 'create'}
+			<div class="form-section panel slide-up">
+				<div class="form-group">
+					<p class="confirm-text">Creating room as <strong class="text-gold">{playerName}</strong></p>
+				</div>
+				<div class="buttons">
+					<button class="btn btn-gold" onclick={createRoom}>Create & Join</button>
+					<button class="btn btn-secondary" onclick={() => (mode = 'home')}>Back</button>
+				</div>
+			</div>
+		{:else if mode === 'join'}
+			<div class="form-section panel slide-up">
+				<div class="form-group">
+					<label for="code">Room Code</label>
+					<input
+						id="code"
+						type="text"
+						bind:value={roomCode}
+						placeholder="Enter 6-letter code"
+						maxlength="6"
+						class="code-input"
+					/>
+				</div>
+				<div class="buttons">
+					<button class="btn btn-blue" onclick={joinRoom} disabled={!roomCode.trim()}>Join Room</button>
+					<button class="btn btn-secondary" onclick={() => (mode = 'home')}>Back</button>
+				</div>
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style>
-	:global(body) {
-		margin: 0;
-		font-family:
-			-apple-system,
-			BlinkMacSystemFont,
-			'Segoe UI',
-			Roboto,
-			sans-serif;
-		background: #1a1a2e;
-		color: #eee;
+	.home-wrapper {
 		min-height: 100dvh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--space-4);
 	}
 
 	.container {
 		max-width: 400px;
-		margin: 0 auto;
-		padding: 2rem 1.5rem;
+		width: 100%;
 		text-align: center;
 	}
 
-	h1 {
-		font-size: 2rem;
-		margin-bottom: 0.25rem;
-		color: #fff;
+	.logo-section {
+		margin-bottom: var(--space-6);
+	}
+
+	.logo {
+		font-size: 40px;
+		margin: 0 0 var(--space-2) 0;
+		color: var(--text-primary);
+		text-transform: uppercase;
+		letter-spacing: 4px;
+		text-shadow:
+			0 0 10px var(--shadow-gold),
+			0 0 20px var(--shadow-gold),
+			0 4px 0 var(--bg-panel-dark);
 	}
 
 	.subtitle {
-		color: #888;
-		margin-bottom: 2rem;
+		color: var(--text-secondary);
+		margin: 0;
+		font-size: 16px;
 	}
 
-	.form-group {
-		margin-bottom: 1.5rem;
+	/* Decorative cards */
+	.card-decoration {
+		display: flex;
+		justify-content: center;
+		gap: var(--space-3);
+		margin-bottom: var(--space-6);
+	}
+
+	.deco-card {
+		width: 50px;
+		height: 70px;
+		background: linear-gradient(135deg, #f5f5f0 0%, #e8e8e0 100%);
+		border: 3px solid #c0c0b0;
+		border-radius: 6px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 28px;
+		font-weight: bold;
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+		transition: transform var(--anim-fast) ease;
+	}
+
+	.deco-card:hover {
+		transform: translateY(-8px) rotate(-5deg);
+	}
+
+	.deco-card.hearts { color: var(--suit-hearts); }
+	.deco-card.diamonds { color: var(--suit-diamonds); }
+	.deco-card.clubs { color: var(--suit-clubs); }
+	.deco-card.spades { color: var(--suit-spades); }
+
+	.deco-card:nth-child(1) { animation-delay: 0ms; }
+	.deco-card:nth-child(2) { animation-delay: 50ms; }
+	.deco-card:nth-child(3) { animation-delay: 100ms; }
+	.deco-card:nth-child(4) { animation-delay: 150ms; }
+
+	/* Form section */
+	.form-section {
 		text-align: left;
 	}
 
-	label {
-		display: block;
-		margin-bottom: 0.5rem;
-		font-size: 0.875rem;
-		color: #aaa;
+	.form-group {
+		margin-bottom: var(--space-4);
 	}
 
-	input {
+	.form-group label {
+		display: block;
+		margin-bottom: var(--space-2);
+		font-size: 14px;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 1px;
+	}
+
+	.form-group input {
 		width: 100%;
-		padding: 0.75rem;
-		border: 1px solid #333;
-		border-radius: 8px;
-		background: #16213e;
-		color: #fff;
-		font-size: 1rem;
+		padding: var(--space-3);
+		font-size: 16px;
 		box-sizing: border-box;
 	}
 
-	input::placeholder {
-		color: #555;
+	.code-input {
+		text-transform: lowercase;
+		letter-spacing: 4px;
+		text-align: center;
+		font-size: 20px !important;
 	}
 
-	input:focus {
-		outline: none;
-		border-color: #e94560;
+	.confirm-text {
+		text-align: center;
+		font-size: 16px;
+		color: var(--text-secondary);
+		margin: 0;
 	}
 
 	.buttons {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: var(--space-3);
 	}
 
-	.btn {
-		padding: 0.875rem;
-		border: none;
-		border-radius: 8px;
-		font-size: 1rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: opacity 0.15s;
-	}
+	/* Responsive */
+	@media (max-width: 480px) {
+		.logo {
+			font-size: 32px;
+			letter-spacing: 2px;
+		}
 
-	.btn:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	.btn.primary {
-		background: #e94560;
-		color: #fff;
-	}
-
-	.btn.primary:hover:not(:disabled) {
-		background: #d63851;
-	}
-
-	.btn.secondary {
-		background: #16213e;
-		color: #aaa;
-		border: 1px solid #333;
-	}
-
-	.btn.secondary:hover:not(:disabled) {
-		background: #1a2745;
+		.deco-card {
+			width: 40px;
+			height: 56px;
+			font-size: 22px;
+		}
 	}
 </style>

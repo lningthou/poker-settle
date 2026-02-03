@@ -7,6 +7,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Balatro-style UI overhaul
+  - Design system (`src/lib/styles/balatro.css`) with:
+    - Balatro color palette (dark blue-gray backgrounds, red/blue/gold accents)
+    - Suit-specific colors (hearts pink, diamonds orange, clubs teal, spades purple)
+    - m6x11 pixel font for retro aesthetic
+    - Utility classes for consistent spacing and styling
+    - Animation keyframes (pulse-glow, screen-shake, pop-in, slide-up, deal)
+    - CRT scanline overlay effect
+    - Animated gradient background
+  - Reusable Card component (`src/lib/components/Card.svelte`) with:
+    - Pixel-art style borders and Balatro suit colors
+    - Face-up and face-down states with 3D flip animation
+    - Deal animation (slide + scale + bounce)
+    - Highlighted state with glow effect
+    - Normal and small size variants
+  - PlayerSeat component (`src/lib/components/PlayerSeat.svelte`) with:
+    - Chip count display with pop animation on change
+    - Dealer badge (gold "D" circle)
+    - Status badges (FOLD, ALL IN, AWAY)
+    - Pulsing glow effect on active player's turn
+    - Position-aware layout (top, bottom, left, right)
+  - PokerTable component (`src/lib/components/PokerTable.svelte`) with:
+    - Player rotation so current player is always at bottom of their screen
+    - Elliptical green felt table with chunky border
+    - Pot display with gold styling
+    - Community cards with staggered deal animation
+    - Responsive player positioning for 2-6 players
+  - Updated home page with decorative playing cards
+  - Screen shake effect when player wins a hand
+  - Bouncy button interactions with scale on hover/click
+
+### Changed
+- Refactored game room page to use new component architecture
+- Increased max width from 600px to 800px for better table layout
+- Buttons now use chunky 3D style with shadows
+
+### Previously Added
 - Initial project specification (`PROJECT_SPEC.md`)
 - Project status tracking (`docs/status.md`)
 - This changelog (`docs/changelog.md`)

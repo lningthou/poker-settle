@@ -1,0 +1,277 @@
+<script lang="ts">
+	import type { Card as CardType } from '$lib/engine/types';
+	import type { PublicPlayer } from '$lib/protocol';
+	import Card from './Card.svelte';
+
+	interface Props {
+		player: PublicPlayer;
+		isMe?: boolean;
+		isActive?: boolean;
+		isDealer?: boolean;
+		holeCards?: CardType[];
+		showCards?: boolean;
+		hasCards?: boolean;
+		position?: 'top' | 'left' | 'right' | 'bottom' | 'top-left' | 'top-right';
+		animate?: boolean;
+	}
+
+	let {
+		player,
+		isMe = false,
+		isActive = false,
+		isDealer = false,
+		holeCards = [],
+		showCards = false,
+		hasCards = false,
+		position = 'bottom',
+		animate = true
+	}: Props = $props();
+
+	let prevChips = $state(0);
+	let chipsChanged = $state(false);
+
+	// Track chip changes for animation
+	$effect(() => {
+		const currentChips = player.chips;
+		if (prevChips !== 0 && currentChips !== prevChips) {
+			chipsChanged = true;
+			const timer = setTimeout(() => {
+				chipsChanged = false;
+			}, 300);
+			return () => clearTimeout(timer);
+		}
+		prevChips = currentChips;
+	});
+
+	function formatChips(chips: number): string {
+		if (chips >= 1000000) return `${(chips / 1000000).toFixed(1)}M`;
+		if (chips >= 1000) return `${(chips / 1000).toFixed(1)}K`;
+		return chips.toString();
+	}
+</script>
+
+<div
+	class="player-seat"
+	class:active={isActive}
+	class:me={isMe}
+	class:folded={player.folded}
+	class:all-in={player.allIn}
+	class:disconnected={!player.connected}
+	data-position={position}
+>
+	<!-- Player info -->
+	<div class="player-info">
+		<div class="name-row">
+			<span class="player-name" class:truncate={player.name.length > 10}>
+				{player.name}
+			</span>
+			{#if isDealer}
+				<span class="dealer-badge">D</span>
+			{/if}
+		</div>
+
+		<div class="chips-row">
+			<span class="chip-icon">●</span>
+			<span class="chip-count" class:chip-change={chipsChanged}>
+				{formatChips(player.chips)}
+			</span>
+		</div>
+
+		{#if player.bet > 0}
+			<div class="current-bet">
+				Bet: {formatChips(player.bet)}
+			</div>
+		{/if}
+
+		{#if player.folded}
+			<div class="status-badge folded-badge">FOLD</div>
+		{:else if player.allIn}
+			<div class="status-badge allin-badge">ALL IN</div>
+		{:else if !player.connected}
+			<div class="status-badge disconnected-badge">AWAY</div>
+		{/if}
+	</div>
+
+	<!-- Hole cards -->
+	<div class="hole-cards">
+		{#if showCards && holeCards.length === 2}
+			<Card card={holeCards[0]} size="small" animate={animate ? 'deal' : 'none'} delay={0} />
+			<Card card={holeCards[1]} size="small" animate={animate ? 'deal' : 'none'} delay={100} />
+		{:else if hasCards && !player.folded}
+			<Card faceDown={true} size="small" />
+			<Card faceDown={true} size="small" />
+		{/if}
+	</div>
+</div>
+
+<style>
+	.player-seat {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-3);
+		background: var(--bg-panel);
+		border: 3px solid var(--border-color);
+		border-radius: var(--card-border-radius);
+		min-width: 100px;
+		transition: all var(--anim-normal) ease;
+	}
+
+	.player-seat.me {
+		background: var(--bg-panel-dark);
+		border-color: var(--accent-blue);
+	}
+
+	.player-seat.active {
+		border-color: var(--accent-gold);
+		animation: pulse-glow 1.5s ease-in-out infinite;
+	}
+
+	@keyframes pulse-glow {
+		0%, 100% {
+			box-shadow: 0 0 10px rgba(243, 185, 88, 0.4), 0 0 20px rgba(243, 185, 88, 0.2);
+		}
+		50% {
+			box-shadow: 0 0 20px rgba(243, 185, 88, 0.6), 0 0 40px rgba(243, 185, 88, 0.4), 0 0 60px rgba(243, 185, 88, 0.2);
+		}
+	}
+
+	.player-seat.folded {
+		opacity: 0.5;
+	}
+
+	.player-seat.disconnected {
+		opacity: 0.4;
+	}
+
+	.player-info {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-1);
+		width: 100%;
+	}
+
+	.name-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		justify-content: center;
+	}
+
+	.player-name {
+		font-size: 14px;
+		color: var(--text-primary);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.player-name.truncate {
+		max-width: 80px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.dealer-badge {
+		background: var(--accent-gold);
+		color: #1a1a1a;
+		font-size: 11px;
+		font-weight: bold;
+		width: 18px;
+		height: 18px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 2px 0 #b8893a;
+	}
+
+	.chips-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+
+	.chip-icon {
+		color: var(--accent-gold);
+		font-size: 12px;
+	}
+
+	.chip-count {
+		color: var(--accent-gold);
+		font-size: 16px;
+		font-weight: bold;
+	}
+
+	.chip-count.chip-change {
+		animation: chip-pop 0.3s ease-out;
+	}
+
+	@keyframes chip-pop {
+		0% { transform: scale(1); }
+		50% { transform: scale(1.3); color: var(--accent-green); }
+		100% { transform: scale(1); }
+	}
+
+	.current-bet {
+		color: var(--accent-red);
+		font-size: 12px;
+	}
+
+	.status-badge {
+		font-size: 10px;
+		padding: 2px 6px;
+		border-radius: 3px;
+		font-weight: bold;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.folded-badge {
+		background: var(--text-muted);
+		color: var(--bg-primary);
+	}
+
+	.allin-badge {
+		background: var(--accent-red);
+		color: white;
+		animation: pulse 1s ease-in-out infinite;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.7; }
+	}
+
+	.disconnected-badge {
+		background: var(--text-secondary);
+		color: var(--bg-primary);
+	}
+
+	.hole-cards {
+		display: flex;
+		gap: var(--space-1);
+		min-height: 62px;
+	}
+
+	/* Position-based adjustments */
+	.player-seat[data-position="bottom"] {
+		flex-direction: column-reverse;
+	}
+
+	.player-seat[data-position="top"] .hole-cards {
+		order: -1;
+	}
+
+	.player-seat[data-position="left"],
+	.player-seat[data-position="right"] {
+		flex-direction: row;
+	}
+
+	.player-seat[data-position="left"] .hole-cards,
+	.player-seat[data-position="right"] .hole-cards {
+		flex-direction: column;
+	}
+</style>
