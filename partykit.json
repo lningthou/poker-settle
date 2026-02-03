@@ -1,0 +1,5 @@
+{
+	"name": "poker-settle",
+	"main": "party/server.ts",
+	"port": 1999
+}

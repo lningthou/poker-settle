@@ -1,10 +1,12 @@
 {
-	"name": "poker-settle-scaffold",
+	"name": "poker-settle",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
+		"dev": "concurrently \"vite dev\" \"partykit dev\"",
+		"dev:app": "vite dev",
+		"dev:party": "partykit dev",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -15,6 +17,8 @@
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.1",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"concurrently": "^9.2.1",
+		"partykit": "^0.0.115",
 		"svelte": "^5.48.2",
 		"svelte-check": "^4.3.5",
 		"typescript": "^5.9.3",
@@ -22,6 +26,7 @@
 		"vitest": "^4.0.18"
 	},
 	"dependencies": {
+		"partysocket": "^1.1.11",
 		"pokersolver": "^2.1.4"
 	}
 }

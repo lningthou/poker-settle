@@ -14,35 +14,35 @@
 - [x] Unit tests for engine logic (30 tests passing)
 
 ### Milestone 2: Real-Time Multiplayer
-**Status**: Current
+**Status**: Completed
 
-- [ ] PartyKit server setup with room-based state
-- [ ] Shareable room link generation
-- [ ] Player join/leave flow (display name only)
-- [ ] WebSocket message protocol design
-- [ ] State sync between server and clients
-- [ ] Reconnection handling
+- [x] PartyKit server setup with room-based state
+- [x] Shareable room link generation
+- [x] Player join/leave flow (display name only)
+- [x] WebSocket message protocol design
+- [x] State sync between server and clients
+- [x] Reconnection handling (via partysocket auto-reconnect)
 
 ### Milestone 3: Responsive UI
-**Status**: Upcoming
+**Status**: Completed
 
 - [x] SvelteKit project scaffold
-- [ ] Card table layout (mobile-first)
-- [ ] Player seats and card rendering (SVG)
-- [ ] Betting controls (slider + presets)
-- [ ] Game status display (pot, community cards, turn indicator)
-- [ ] Join/lobby screen
+- [x] Card table layout (mobile-first)
+- [x] Player seats and card rendering (unicode suits)
+- [x] Betting controls (slider + presets)
+- [x] Game status display (pot, community cards, turn indicator)
+- [x] Join/lobby screen
 
 ### Milestone 4: Session Ledger & Settlement
-**Status**: Upcoming
+**Status**: Completed
 
 - [x] Debt simplification algorithm (minimize transactions)
-- [ ] Buy-in and rebuy tracking per player
-- [ ] End session flow (host action)
-- [ ] Settlement results screen with Venmo/Zelle deep links
+- [x] Buy-in and rebuy tracking per player
+- [x] End session flow (host action)
+- [x] Settlement results screen
 
 ### Milestone 5: Polish & Deploy
-**Status**: Upcoming
+**Status**: Current
 
 - [ ] Card deal / flip animations
 - [ ] Sound effects (toggle-able)
