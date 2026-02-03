@@ -48,9 +48,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Mobile-first responsive layout
 - Host can kick players from lobby (X button on hover)
 - Comprehensive server-side logging for debugging
+- Auto-advance to next hand with 4-second countdown after showdown
+- In-game chat feature (messages broadcast to all players in the room)
 
 ### Fixed
 - Betting round logic: players were being skipped because `isBettingRoundOver` returned true after a single check (added `roundStartIndex` tracking so the round only ends when action returns to the starting player or last raiser)
+- Copy share link button now works (async clipboard API with fallback to prompt)
 
 ### Changed
 - Card colors: spades and clubs now render in black (was gray, hard to see on white cards)

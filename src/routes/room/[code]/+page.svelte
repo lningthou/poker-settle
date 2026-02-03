@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import {
 		connect,
@@ -32,10 +32,12 @@
 		call,
 		raise,
 		allIn,
-		nextHand,
 		rebuy,
 		endSession,
-		kickPlayer
+		kickPlayer,
+		nextHandCountdown,
+		chatMessages,
+		sendChat
 	} from '$lib/stores/game';
 	import type { Card } from '$lib/engine/types';
 
@@ -45,7 +47,9 @@
 	let sbAmount = $state(5);
 	let bbAmount = $state(10);
 	let raiseAmount = $state(0);
-	let showShareLink = $state(false);
+	let showCopied = $state(false);
+	let chatInput = $state('');
+	let chatContainer: HTMLDivElement;
 
 	onMount(() => {
 		const name = page.url.searchParams.get('name');
@@ -60,6 +64,15 @@
 		disconnect();
 	});
 
+	// Auto-scroll chat when new messages arrive
+	$effect(() => {
+		if ($chatMessages.length > 0 && chatContainer) {
+			tick().then(() => {
+				chatContainer.scrollTop = chatContainer.scrollHeight;
+			});
+		}
+	});
+
 	function formatCard(card: Card): string {
 		const suitSymbols: Record<string, string> = { h: '\u2665', d: '\u2666', c: '\u2663', s: '\u2660' };
 		const rankDisplay: Record<string, string> = { T: '10', J: 'J', Q: 'Q', K: 'K', A: 'A' };
@@ -70,14 +83,16 @@
 		return card.suit === 'h' || card.suit === 'd' ? '#e94560' : '#222';
 	}
 
-	function shareLink(): string {
-		return `${window.location.origin}/room/${page.params.code}`;
-	}
-
-	function copyShareLink() {
-		navigator.clipboard.writeText(shareLink());
-		showShareLink = true;
-		setTimeout(() => (showShareLink = false), 2000);
+	async function copyShareLink() {
+		const link = `${window.location.origin}/room/${page.params.code}`;
+		try {
+			await navigator.clipboard.writeText(link);
+			showCopied = true;
+			setTimeout(() => (showCopied = false), 2000);
+		} catch {
+			// Fallback for browsers that don't support clipboard API
+			prompt('Copy this link:', link);
+		}
 	}
 
 	function canCheck(): boolean {
@@ -98,6 +113,14 @@
 			raiseAmount = 0;
 		}
 	}
+
+	function handleChatSubmit(e: Event) {
+		e.preventDefault();
+		if (chatInput.trim()) {
+			sendChat(chatInput.trim());
+			chatInput = '';
+		}
+	}
 </script>
 
 <svelte:head>
@@ -110,7 +133,7 @@
 		<div class="room-info">
 			<span class="room-code">{page.params.code}</span>
 			<button class="copy-btn" onclick={copyShareLink}>
-				{showShareLink ? 'Copied!' : 'Share'}
+				{showCopied ? 'Copied!' : 'Share'}
 			</button>
 		</div>
 		{#if $isHost && $phase !== 'waiting'}
@@ -275,8 +298,8 @@
 							{#if result.hand}({result.hand}){/if}
 						</div>
 					{/each}
-					{#if $isHost}
-						<button class="btn primary" onclick={nextHand}>Next Hand</button>
+					{#if $nextHandCountdown}
+						<div class="countdown">Next hand in {$nextHandCountdown}...</div>
 					{/if}
 				</div>
 			{/if}
@@ -312,6 +335,30 @@
 					</div>
 				</div>
 			{/if}
+
+			<!-- Chat -->
+			<div class="chat-section">
+				<div class="chat-messages" bind:this={chatContainer}>
+					{#each $chatMessages as msg}
+						<div class="chat-msg">
+							<span class="chat-name">{msg.name}:</span>
+							<span class="chat-text">{msg.message}</span>
+						</div>
+					{/each}
+					{#if $chatMessages.length === 0}
+						<div class="chat-empty">No messages yet</div>
+					{/if}
+				</div>
+				<form class="chat-input" onsubmit={handleChatSubmit}>
+					<input
+						type="text"
+						bind:value={chatInput}
+						placeholder="Type a message..."
+						maxlength="200"
+					/>
+					<button type="submit" class="btn primary" disabled={!chatInput.trim()}>Send</button>
+				</form>
+			</div>
 		</div>
 	{/if}
 </div>
@@ -352,6 +399,10 @@
 		color: #aaa;
 		cursor: pointer;
 		font-size: 0.8rem;
+	}
+
+	.copy-btn:hover {
+		background: #1a2745;
 	}
 
 	.error-toast {
@@ -646,13 +697,17 @@
 		margin-bottom: 0.5rem;
 	}
 
+	.countdown {
+		color: #888;
+		font-size: 0.875rem;
+		margin-top: 0.5rem;
+	}
+
 	/* Controls */
 	.controls {
 		background: #16213e;
 		padding: 1rem;
 		border-radius: 12px;
-		position: sticky;
-		bottom: 1rem;
 	}
 
 	.action-buttons {
@@ -682,6 +737,69 @@
 		border-radius: 6px;
 		background: #1a1a2e;
 		color: #fff;
+	}
+
+	/* Chat */
+	.chat-section {
+		background: #16213e;
+		border-radius: 10px;
+		overflow: hidden;
+	}
+
+	.chat-messages {
+		height: 120px;
+		overflow-y: auto;
+		padding: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.chat-msg {
+		font-size: 0.8rem;
+	}
+
+	.chat-name {
+		color: #e94560;
+		font-weight: 600;
+		margin-right: 0.25rem;
+	}
+
+	.chat-text {
+		color: #ddd;
+	}
+
+	.chat-empty {
+		color: #555;
+		font-size: 0.8rem;
+		text-align: center;
+		padding: 1rem;
+	}
+
+	.chat-input {
+		display: flex;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-top: 1px solid #333;
+	}
+
+	.chat-input input {
+		flex: 1;
+		padding: 0.5rem;
+		border: 1px solid #333;
+		border-radius: 6px;
+		background: #1a1a2e;
+		color: #fff;
+		font-size: 0.8rem;
+	}
+
+	.chat-input input::placeholder {
+		color: #555;
+	}
+
+	.chat-input .btn {
+		padding: 0.5rem 0.75rem;
+		font-size: 0.8rem;
 	}
 
 	/* Buttons */

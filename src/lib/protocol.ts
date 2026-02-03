@@ -14,7 +14,8 @@ export type ClientMessage =
 	| { type: 'next-hand' }
 	| { type: 'end-session' }
 	| { type: 'rebuy'; amount: number }
-	| { type: 'kick'; targetId: string };
+	| { type: 'kick'; targetId: string }
+	| { type: 'chat'; message: string };
 
 // ─── Server → Client Messages ───────────────────────────────────
 
@@ -64,4 +65,6 @@ export type ServerMessage =
 	| { type: 'hand-result'; winners: { playerId: string; hand: string; amount: number }[] }
 	| { type: 'settlement'; payments: SettlementPayment[] }
 	| { type: 'player-joined'; name: string }
-	| { type: 'player-left'; name: string };
+	| { type: 'player-left'; name: string }
+	| { type: 'chat'; name: string; message: string }
+	| { type: 'next-hand-countdown'; seconds: number };

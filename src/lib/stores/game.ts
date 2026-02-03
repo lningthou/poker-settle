@@ -24,6 +24,14 @@ export const handResult = writable<{ playerId: string; hand: string; amount: num
 	null
 );
 export const settlement = writable<SettlementPayment[] | null>(null);
+export const nextHandCountdown = writable<number | null>(null);
+
+export interface ChatMessage {
+	name: string;
+	message: string;
+	timestamp: number;
+}
+export const chatMessages = writable<ChatMessage[]>([]);
 
 // Derived stores
 export const isHost = derived([playerId, hostId], ([$pid, $hid]) => $pid === $hid);
@@ -91,6 +99,8 @@ function resetStores() {
 	errorMessage.set(null);
 	handResult.set(null);
 	settlement.set(null);
+	nextHandCountdown.set(null);
+	chatMessages.set([]);
 }
 
 function send(msg: ClientMessage) {
@@ -117,9 +127,13 @@ function handleMessage(msg: ServerMessage) {
 			smallBlind.set(msg.smallBlind);
 			bigBlind.set(msg.bigBlind);
 			hostId.set(msg.hostId);
-			// Clear hole cards if we're in waiting phase (new game)
+			// Clear state when phase changes from complete
 			if (msg.phase === 'waiting') {
 				holeCards.set([]);
+				handResult.set(null);
+			}
+			if (msg.phase !== 'complete') {
+				nextHandCountdown.set(null);
 				handResult.set(null);
 			}
 			break;
@@ -139,6 +153,17 @@ function handleMessage(msg: ServerMessage) {
 
 		case 'settlement':
 			settlement.set(msg.payments);
+			break;
+
+		case 'next-hand-countdown':
+			nextHandCountdown.set(msg.seconds);
+			break;
+
+		case 'chat':
+			chatMessages.update((msgs) => [
+				...msgs.slice(-99), // keep last 100 messages
+				{ name: msg.name, message: msg.message, timestamp: Date.now() }
+			]);
 			break;
 
 		case 'player-joined':
@@ -189,4 +214,8 @@ export function endSession() {
 
 export function kickPlayer(targetId: string) {
 	send({ type: 'kick', targetId });
+}
+
+export function sendChat(message: string) {
+	send({ type: 'chat', message });
 }

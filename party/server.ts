@@ -144,6 +144,9 @@ export default class PokerRoom implements Party.Server {
 			case 'kick':
 				this.handleKick(sender, msg.targetId);
 				break;
+			case 'chat':
+				this.handleChat(sender, msg.message);
+				break;
 		}
 	}
 
@@ -465,6 +468,73 @@ export default class PokerRoom implements Party.Server {
 				this.broadcast({ type: 'private', holeCards: player.holeCards });
 			}
 		}
+
+		// Auto-advance to next hand after delay
+		this.scheduleNextHand();
+	}
+
+	private nextHandTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	private scheduleNextHand() {
+		if (this.nextHandTimeout) {
+			clearTimeout(this.nextHandTimeout);
+		}
+
+		const COUNTDOWN_SECONDS = 4;
+
+		// Send countdown
+		for (let i = COUNTDOWN_SECONDS; i > 0; i--) {
+			setTimeout(() => {
+				this.broadcast({ type: 'next-hand-countdown', seconds: i });
+			}, (COUNTDOWN_SECONDS - i) * 1000);
+		}
+
+		this.nextHandTimeout = setTimeout(() => {
+			this.autoAdvanceHand();
+		}, COUNTDOWN_SECONDS * 1000);
+	}
+
+	private autoAdvanceHand() {
+		if (!this.gameState || this.gameState.phase !== 'complete') return;
+
+		advanceDealer(this.gameState);
+
+		const playersWithChips = this.gameState.players.filter((p) => p.chips > 0 && !p.sittingOut);
+		if (playersWithChips.length < 2) {
+			log(this.room.id, 'not enough players with chips for next hand');
+			return;
+		}
+
+		for (const p of this.gameState.players) {
+			if (p.chips === 0) p.sittingOut = true;
+		}
+
+		startHand(this.gameState, this.deck);
+
+		log(this.room.id, `auto-advanced to next hand, dealer=${this.gameState.dealerIndex}`);
+
+		this.broadcastState();
+		this.sendPrivateCards();
+	}
+
+	private handleChat(connection: Party.Connection, message: string) {
+		const playerId = this.connectionToPlayer.get(connection.id);
+		if (!playerId) return;
+
+		const meta = this.playerMeta.get(playerId);
+		if (!meta) return;
+
+		// Sanitize and limit message length
+		const cleanMessage = message.trim().slice(0, 200);
+		if (!cleanMessage) return;
+
+		log(this.room.id, `chat from ${meta.name}: ${cleanMessage}`);
+
+		this.broadcast({
+			type: 'chat',
+			name: meta.name,
+			message: cleanMessage
+		});
 	}
 
 	private sendPrivateCards() {
