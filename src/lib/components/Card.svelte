@@ -70,7 +70,6 @@
 	class:highlighted
 	class:dealing={animate === 'deal' && !hasDealt}
 	class:dealt={animate === 'deal' && hasDealt}
-	style:--deal-delay="{delay}ms"
 >
 	<div class="card-inner" class:flipped={isFlipped}>
 		<!-- Front face -->
@@ -113,7 +112,6 @@
 
 	.card-container.dealt {
 		animation: deal-in var(--anim-deal, 400ms) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-		animation-delay: var(--deal-delay, 0ms);
 	}
 
 	@keyframes deal-in {
