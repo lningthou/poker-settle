@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Bet panel with presets instead of always-visible slider
+  - Bet/Raise button reveals preset panel with 1/4, 1/2, 3/4, Pot, and All-in options
+  - Slider still available for custom amounts
+  - Panel animates in with slide-up effect
+- Showdown card reveal
+  - Opponent cards are now revealed during showdown phase
+  - Players can visually see the winning hand
+  - Protocol extended with `showdownCards` in hand-result message
+- SB and BB badges alongside dealer badge
+  - Small blind: blue badge
+  - Big blind: red badge
+  - Badges show correctly for heads-up (dealer is SB) and 3+ players
+- Players positioned outside the table felt (around the table perimeter)
 - Balatro-style UI overhaul
   - Design system (`src/lib/styles/balatro.css`) with:
     - Balatro color palette (dark blue-gray backgrounds, red/blue/gold accents)

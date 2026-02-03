@@ -21,6 +21,7 @@
 		holeCards,
 		errorMessage,
 		handResult,
+		showdownCards,
 		settlement,
 		isHost,
 		isMyTurn,
@@ -123,6 +124,7 @@
 	}
 
 	let rebuyAmount = $state(1000);
+	let showBetPanel = $state(false);
 
 	function handleRebuy() {
 		if (rebuyAmount > 0) {
@@ -134,8 +136,39 @@
 		if (raiseAmount > 0) {
 			raise(raiseAmount);
 			raiseAmount = 0;
+			showBetPanel = false;
 		}
 	}
+
+	function toggleBetPanel() {
+		showBetPanel = !showBetPanel;
+		if (showBetPanel) {
+			// Default to min raise
+			raiseAmount = $bigBlind;
+		}
+	}
+
+	function setBetPreset(fraction: number) {
+		const pot = $totalPot;
+		const me = $myPlayer;
+		if (!me) return;
+
+		const betAmount = Math.floor(pot * fraction);
+		// Clamp between min raise and max (all chips)
+		raiseAmount = Math.max($bigBlind, Math.min(betAmount, me.chips));
+	}
+
+	function handleAllIn() {
+		allIn();
+		showBetPanel = false;
+	}
+
+	// Reset bet panel when turn changes
+	$effect(() => {
+		if (!$isMyTurn) {
+			showBetPanel = false;
+		}
+	});
 
 	function handleChatSubmit(e: Event) {
 		e.preventDefault();
@@ -286,6 +319,7 @@
 				holeCards={$holeCards}
 				smallBlind={$smallBlind}
 				bigBlind={$bigBlind}
+				showdownCards={$showdownCards}
 				showdown={$phase === 'showdown' || $phase === 'complete'}
 			>
 				<!-- Hand Result Overlay -->
@@ -341,23 +375,44 @@
 								Call {callAmount()}
 							</button>
 						{/if}
-						{#if !isCallAllIn() && !canCheck()}
-							<button class="btn btn-gold" onclick={allIn}>All In</button>
+						{#if !isCallAllIn()}
+							<button
+								class="btn btn-green"
+								class:active={showBetPanel}
+								onclick={toggleBetPanel}
+							>
+								{$currentBet > 0 ? 'Raise' : 'Bet'}
+							</button>
 						{/if}
 					</div>
-					{#if !isCallAllIn()}
-						<div class="raise-controls">
-							<input
-								type="range"
-								min={$bigBlind}
-								max={$myPlayer?.chips ?? 0}
-								step={$bigBlind}
-								bind:value={raiseAmount}
-							/>
-							<div class="raise-row">
+
+					<!-- Bet/Raise Panel -->
+					{#if showBetPanel && !isCallAllIn()}
+						<div class="bet-panel slide-up">
+							<div class="bet-presets">
+								<button class="preset-btn" onclick={() => setBetPreset(0.25)}>1/4</button>
+								<button class="preset-btn" onclick={() => setBetPreset(0.5)}>1/2</button>
+								<button class="preset-btn" onclick={() => setBetPreset(0.75)}>3/4</button>
+								<button class="preset-btn" onclick={() => setBetPreset(1)}>Pot</button>
+								<button class="preset-btn allin" onclick={handleAllIn}>All In</button>
+							</div>
+							<div class="bet-slider">
+								<input
+									type="range"
+									min={$bigBlind}
+									max={$myPlayer?.chips ?? 0}
+									step={$bigBlind}
+									bind:value={raiseAmount}
+								/>
+								<div class="slider-labels">
+									<span>{$bigBlind}</span>
+									<span>{$myPlayer?.chips ?? 0}</span>
+								</div>
+							</div>
+							<div class="bet-confirm">
 								<input type="number" bind:value={raiseAmount} min={$bigBlind} />
-								<button class="btn btn-secondary" onclick={handleRaise} disabled={raiseAmount <= 0}>
-									Raise
+								<button class="btn btn-gold" onclick={handleRaise} disabled={raiseAmount <= 0}>
+									{$currentBet > 0 ? 'Raise' : 'Bet'} {raiseAmount}
 								</button>
 							</div>
 						</div>
@@ -634,26 +689,94 @@
 	.action-buttons {
 		display: flex;
 		gap: var(--space-3);
-		margin-bottom: var(--space-4);
 	}
 
 	.action-buttons .btn {
 		flex: 1;
 	}
 
-	.raise-controls input[type="range"] {
-		width: 100%;
+	.action-buttons .btn.active {
+		box-shadow: 0 0 15px var(--accent-green), 0 4px 0 #2d8060;
+	}
+
+	/* Bet Panel */
+	.bet-panel {
+		margin-top: var(--space-4);
+		padding-top: var(--space-4);
+		border-top: 2px solid var(--border-color);
+	}
+
+	.bet-presets {
+		display: flex;
+		gap: var(--space-2);
+		margin-bottom: var(--space-4);
+		flex-wrap: wrap;
+	}
+
+	.preset-btn {
+		flex: 1;
+		min-width: 50px;
+		padding: var(--space-2) var(--space-3);
+		background: var(--bg-panel-dark);
+		border: 2px solid var(--border-color);
+		border-radius: 6px;
+		color: var(--text-primary);
+		font-family: inherit;
+		font-size: 14px;
+		font-weight: bold;
+		cursor: pointer;
+		transition: all var(--anim-fast) ease;
+	}
+
+	.preset-btn:hover {
+		background: var(--bg-secondary);
+		border-color: var(--accent-blue);
+	}
+
+	.preset-btn:active {
+		transform: scale(0.95);
+	}
+
+	.preset-btn.allin {
+		background: var(--accent-red);
+		border-color: #d94a40;
+		color: white;
+	}
+
+	.preset-btn.allin:hover {
+		box-shadow: 0 0 10px var(--shadow-red);
+	}
+
+	.bet-slider {
 		margin-bottom: var(--space-3);
 	}
 
-	.raise-row {
+	.bet-slider input[type="range"] {
+		width: 100%;
+		margin-bottom: var(--space-1);
+	}
+
+	.slider-labels {
+		display: flex;
+		justify-content: space-between;
+		font-size: 12px;
+		color: var(--text-muted);
+	}
+
+	.bet-confirm {
 		display: flex;
 		gap: var(--space-3);
 	}
 
-	.raise-row input[type="number"] {
+	.bet-confirm input[type="number"] {
 		flex: 1;
-		font-size: 16px;
+		font-size: 18px;
+		font-weight: bold;
+		text-align: center;
+	}
+
+	.bet-confirm .btn {
+		min-width: 120px;
 	}
 
 	/* Chat */
@@ -768,10 +891,6 @@
 		}
 
 		.action-buttons {
-			flex-direction: column;
-		}
-
-		.raise-row {
 			flex-direction: column;
 		}
 	}

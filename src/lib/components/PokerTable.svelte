@@ -15,6 +15,7 @@
 		holeCards: CardType[];
 		smallBlind: number;
 		bigBlind: number;
+		showdownCards?: Record<string, CardType[]>;
 		showdown?: boolean;
 		children?: import('svelte').Snippet;
 	}
@@ -30,6 +31,7 @@
 		holeCards,
 		smallBlind,
 		bigBlind,
+		showdownCards = {},
 		showdown = false,
 		children
 	}: Props = $props();
@@ -108,17 +110,26 @@
 
 	// Get hole cards for a player
 	function getPlayerHoleCards(player: PublicPlayer): CardType[] {
+		// During showdown, use revealed cards if available
+		if (showdown && showdownCards[player.id]) {
+			return showdownCards[player.id];
+		}
+		// For self, use private hole cards
 		if (player.id === myId) return holeCards;
 		return [];
 	}
 
 	function shouldShowCards(player: PublicPlayer): boolean {
+		// Always show own cards
 		if (player.id === myId) return true;
+		// During showdown, show if we have their revealed cards
+		if (showdown && showdownCards[player.id]) return true;
 		return false;
 	}
 
 	function hasCards(player: PublicPlayer): boolean {
 		if (player.id === myId) return holeCards.length > 0;
+		if (showdown && showdownCards[player.id]) return true;
 		return player.cardCount > 0;
 	}
 

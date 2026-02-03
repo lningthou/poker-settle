@@ -62,7 +62,7 @@ export type ServerMessage =
 	| { type: 'private'; holeCards: Card[] }
 	| { type: 'joined'; playerId: string; roomCode: string }
 	| { type: 'error'; message: string }
-	| { type: 'hand-result'; winners: { playerId: string; hand: string; amount: number }[] }
+	| { type: 'hand-result'; winners: { playerId: string; hand: string; amount: number }[]; showdownCards?: Record<string, Card[]> }
 	| { type: 'settlement'; payments: SettlementPayment[] }
 	| { type: 'player-joined'; name: string }
 	| { type: 'player-left'; name: string }

@@ -477,13 +477,15 @@ export default class PokerRoom implements Party.Server {
 				}))
 			);
 
+			// Build showdown cards map for all active players
+			const showdownCards: Record<string, typeof active[0]['holeCards']> = {};
+			for (const player of active) {
+				showdownCards[player.id] = player.holeCards;
+			}
+
 			log(this.room.id, `hand resolved (showdown):`, JSON.stringify(results));
 
-			this.broadcast({ type: 'hand-result', winners: results });
-
-			for (const player of active) {
-				this.broadcast({ type: 'private', holeCards: player.holeCards });
-			}
+			this.broadcast({ type: 'hand-result', winners: results, showdownCards });
 		}
 
 		// Auto-advance to next hand after delay

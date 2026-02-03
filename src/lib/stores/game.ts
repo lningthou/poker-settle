@@ -23,6 +23,7 @@ export const errorMessage = writable<string | null>(null);
 export const handResult = writable<{ playerId: string; hand: string; amount: number }[] | null>(
 	null
 );
+export const showdownCards = writable<Record<string, Card[]>>({});
 export const settlement = writable<SettlementPayment[] | null>(null);
 export const nextHandCountdown = writable<number | null>(null);
 
@@ -132,10 +133,12 @@ function handleMessage(msg: ServerMessage) {
 			if (msg.phase === 'waiting') {
 				holeCards.set([]);
 				handResult.set(null);
+				showdownCards.set({});
 			}
 			if (msg.phase !== 'complete') {
 				nextHandCountdown.set(null);
 				handResult.set(null);
+				showdownCards.set({});
 			}
 			break;
 
@@ -150,6 +153,9 @@ function handleMessage(msg: ServerMessage) {
 
 		case 'hand-result':
 			handResult.set(msg.winners);
+			if (msg.showdownCards) {
+				showdownCards.set(msg.showdownCards);
+			}
 			break;
 
 		case 'settlement':

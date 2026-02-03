@@ -53,6 +53,10 @@
   - [x] Screen shake on wins
   - [x] Pulsing glow on active player
   - [x] Bouncy button interactions
+  - [x] SB and BB badges alongside dealer badge
+  - [x] Bet panel with presets (1/4, 1/2, 3/4, Pot, All-in)
+  - [x] Showdown card reveal (opponents' cards visible during showdown)
+  - [x] Players positioned outside table felt
 - [ ] Sound effects (toggle-able)
 - [ ] Edge case handling (disconnect mid-hand, player timeout)
 - [ ] Deploy frontend to Vercel
