@@ -58,7 +58,8 @@ export function connect(host: string, room: string, playerName: string) {
 
 	socket = new PartySocket({
 		host,
-		room
+		room,
+		party: 'main'
 	});
 
 	socket.addEventListener('open', () => {
