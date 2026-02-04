@@ -46,8 +46,9 @@
 	import PokerTable from '$lib/components/PokerTable.svelte';
 	import CardComponent from '$lib/components/Card.svelte';
 	import { sounds, soundEnabled, toggleSound } from '$lib/sounds';
+	import { PUBLIC_PARTYKIT_HOST } from '$env/static/public';
 
-	const PARTY_HOST = 'localhost:1999';
+	const PARTY_HOST = PUBLIC_PARTYKIT_HOST || 'localhost:1999';
 
 	let buyInAmount = $state(1000);
 	let buyInDollars = $state(10);
@@ -519,7 +520,7 @@
 						</div>
 					{/if}
 
-					{#if $phase !== 'complete' && $phase !== 'waiting' && $myPlayer && !$myPlayer.folded && !$myPlayer.sittingOut && !$myPlayer.allIn}
+					{#if $phase !== 'complete' && $myPlayer && !$myPlayer.folded && !$myPlayer.sittingOut && !$myPlayer.allIn}
 						<div class="auto-actions panel">
 							<div class="auto-actions-title">Preset Actions</div>
 							<div class="auto-actions-buttons">
