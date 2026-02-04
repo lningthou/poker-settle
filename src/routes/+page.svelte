@@ -3,7 +3,7 @@
 
 	let playerName = $state('');
 	let roomCode = $state('');
-	let mode = $state<'home' | 'create' | 'join'>('home');
+	let showJoinForm = $state(false);
 
 	function generateRoomCode(): string {
 		const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -46,7 +46,7 @@
 			<span class="deco-card clubs">J</span>
 		</div>
 
-		{#if mode === 'home'}
+		{#if !showJoinForm}
 			<div class="form-section panel slide-up">
 				<div class="form-group">
 					<label for="name">Your Name</label>
@@ -61,32 +61,22 @@
 
 				<div class="buttons">
 					<button
-						class="btn btn-primary"
-						onclick={() => (mode = 'create')}
+						class="btn btn-gold"
+						onclick={createRoom}
 						disabled={!playerName.trim()}
 					>
 						Create Room
 					</button>
 					<button
 						class="btn btn-secondary"
-						onclick={() => (mode = 'join')}
+						onclick={() => (showJoinForm = true)}
 						disabled={!playerName.trim()}
 					>
 						Join Room
 					</button>
 				</div>
 			</div>
-		{:else if mode === 'create'}
-			<div class="form-section panel slide-up">
-				<div class="form-group">
-					<p class="confirm-text">Creating room as <strong class="text-gold">{playerName}</strong></p>
-				</div>
-				<div class="buttons">
-					<button class="btn btn-gold" onclick={createRoom}>Create & Join</button>
-					<button class="btn btn-secondary" onclick={() => (mode = 'home')}>Back</button>
-				</div>
-			</div>
-		{:else if mode === 'join'}
+		{:else}
 			<div class="form-section panel slide-up">
 				<div class="form-group">
 					<label for="code">Room Code</label>
@@ -101,7 +91,7 @@
 				</div>
 				<div class="buttons">
 					<button class="btn btn-blue" onclick={joinRoom} disabled={!roomCode.trim()}>Join Room</button>
-					<button class="btn btn-secondary" onclick={() => (mode = 'home')}>Back</button>
+					<button class="btn btn-secondary" onclick={() => (showJoinForm = false)}>Back</button>
 				</div>
 			</div>
 		{/if}
@@ -212,13 +202,6 @@
 		letter-spacing: 4px;
 		text-align: center;
 		font-size: 20px !important;
-	}
-
-	.confirm-text {
-		text-align: center;
-		font-size: 16px;
-		color: var(--text-secondary);
-		margin: 0;
 	}
 
 	.buttons {
