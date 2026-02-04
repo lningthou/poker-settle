@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Card } from '$lib/engine/types';
+	import { sounds } from '$lib/sounds';
 
 	interface Props {
 		card?: Card | null;
@@ -57,7 +58,13 @@
 			const timer = setTimeout(() => {
 				hasDealt = true;
 			}, delay);
-			return () => clearTimeout(timer);
+			const soundTimer = setTimeout(() => {
+				sounds.cardDeal();
+			}, delay);
+			return () => {
+				clearTimeout(timer);
+				clearTimeout(soundTimer);
+			};
 		} else {
 			hasDealt = true;
 		}

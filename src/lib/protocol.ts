@@ -11,6 +11,7 @@ export type ClientMessage =
 	| { type: 'join'; name: string }
 	| { type: 'start-game'; buyIn: number; smallBlind: number; bigBlind: number; buyInDollars: number }
 	| { type: 'action'; action: ActionType; amount?: number }
+	| { type: 'auto-action'; action: 'check-fold' | 'check' | 'call-any' | 'fold' | null }
 	| { type: 'next-hand' }
 	| { type: 'end-session' }
 	| { type: 'rebuy'; amount: number }

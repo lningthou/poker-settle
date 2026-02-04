@@ -1,42 +1,47 @@
-# sv
+# Poker Settle
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Real-time multiplayer poker with a Balatro-inspired UI, built with SvelteKit + PartyKit.
 
-## Creating a project
+## Features
+- Texas Hold’em engine with side pots and showdown evaluation
+- Rebuy + session settlement (chips or dollars)
+- PartyKit real-time rooms with reconnect support
+- Sound effects and retro UI polish
+- Turn timer with auto check/fold on timeout
+- Preset auto actions: Check/Fold, Check, Call Any, Fold
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Development
+
+Install dependencies:
 
 ```sh
-# create a new project
-npx sv create my-app
+npm install
 ```
 
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv create --template minimal --types ts --no-install poker-settle-scaffold
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Run app + PartyKit server:
 
 ```sh
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
-
-To create a production version of your app:
+Run app only:
 
 ```sh
-npm run build
+npm run dev:app
 ```
 
-You can preview the production build with `npm run preview`.
+Run PartyKit only:
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+```sh
+npm run dev:party
+```
+
+Run tests:
+
+```sh
+npx vitest run
+```
+
+## Notes
+- The PartyKit dev server runs on `localhost:1999` by default.
+- The Share button copies the room code to the clipboard.

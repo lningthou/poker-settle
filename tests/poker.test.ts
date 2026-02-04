@@ -169,6 +169,21 @@ describe('Betting Actions', () => {
 		expect(player.chips).toBe(0);
 		expect(player.allIn).toBe(true);
 	});
+
+	it('should allow short all-in raise without lowering current bet', () => {
+		const { state, deck } = setupPreflop();
+		const activeId = state.players[state.activePlayerIndex].id;
+		const player = state.players.find((p) => p.id === activeId)!;
+
+		// Make player short-stacked so a full min-raise is impossible.
+		player.chips = 11; // less than call (10) + minRaise (10)
+
+		applyAction(state, activeId, { type: 'raise', amount: 2 }, deck);
+
+		expect(player.bet).toBe(11);
+		expect(state.currentBet).toBe(11);
+		expect(state.lastRaiserIndex).toBeNull();
+	});
 });
 
 describe('Hand Evaluation', () => {

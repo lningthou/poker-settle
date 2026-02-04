@@ -52,16 +52,37 @@
 	// Calculate SB and BB positions based on dealer
 	// In heads-up: dealer is SB, other player is BB
 	// In 3+ players: SB is dealer+1, BB is dealer+2
-	function getBlindPositions(dealerIdx: number, playerCount: number): { sbIndex: number; bbIndex: number } {
-		if (playerCount === 2) {
+	function getActiveIndices(allPlayers: PublicPlayer[]): number[] {
+		return allPlayers
+			.map((p, idx) => ({ p, idx }))
+			.filter(({ p }) => !p.sittingOut)
+			.map(({ idx }) => idx);
+	}
+
+	function nextActiveIndex(activeIndices: number[], fromIndex: number, offset: number): number {
+		const start = activeIndices.indexOf(fromIndex);
+		if (start === -1) return -1;
+		const idx = (start + offset) % activeIndices.length;
+		return activeIndices[idx];
+	}
+
+	function getBlindPositions(
+		dealerIdx: number,
+		allPlayers: PublicPlayer[]
+	): { sbIndex: number; bbIndex: number } {
+		const activeIndices = getActiveIndices(allPlayers);
+		if (activeIndices.length < 2) {
+			return { sbIndex: -1, bbIndex: -1 };
+		}
+		if (activeIndices.length === 2) {
 			return {
 				sbIndex: dealerIdx,
-				bbIndex: (dealerIdx + 1) % playerCount
+				bbIndex: nextActiveIndex(activeIndices, dealerIdx, 1)
 			};
 		}
 		return {
-			sbIndex: (dealerIdx + 1) % playerCount,
-			bbIndex: (dealerIdx + 2) % playerCount
+			sbIndex: nextActiveIndex(activeIndices, dealerIdx, 1),
+			bbIndex: nextActiveIndex(activeIndices, dealerIdx, 2)
 		};
 	}
 
@@ -119,7 +140,7 @@
 
 	let rotatedPlayers = $derived(rotatePlayersToMe(players, myId));
 	let totalPot = $derived(pots.reduce((sum, pot) => sum + pot.amount, 0));
-	let blindPositions = $derived(getBlindPositions(dealerIndex, players.length));
+	let blindPositions = $derived(getBlindPositions(dealerIndex, players));
 
 	// Get hole cards for a player
 	function getPlayerHoleCards(player: PublicPlayer): CardType[] {

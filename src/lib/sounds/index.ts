@@ -150,6 +150,9 @@ export const sounds = {
 	// Chip bet
 	chipBet: () => playTone(1000, 0.06, 'square', 0.15),
 
+	// Slider tick
+	sliderTick: () => playTone(900, 0.02, 'square', 0.12),
+
 	// Error
 	error: () => playSequence([
 		{ freq: 200, duration: 0.15, delay: 0 },

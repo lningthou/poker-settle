@@ -61,6 +61,9 @@ export default class PokerRoom implements Party.Server {
 	private playerCounter = 0;
 	private gameStarted = false;
 	private chipsPerDollar = 0; // chips / dollars rate for settlement
+	private autoActions: Map<string, 'check-fold' | 'check' | 'call-any' | 'fold' | null> = new Map();
+	private turnTimeout: ReturnType<typeof setTimeout> | null = null;
+	private turnTimeoutSeconds = 20;
 
 	constructor(readonly room: Party.Room) {}
 
@@ -74,37 +77,38 @@ export default class PokerRoom implements Party.Server {
 		if (!playerId) return;
 
 		const meta = this.playerMeta.get(playerId);
-		if (meta) {
-			meta.connectionId = '';
+			if (meta) {
+				meta.connectionId = '';
 
-			if (this.gameState) {
-				const player = this.gameState.players.find((p) => p.id === playerId);
-				if (player) {
-					player.sittingOut = true;
-
-					if (
-						this.gameState.activePlayerIndex ===
-						this.gameState.players.indexOf(player)
-					) {
-						if (!player.folded && !player.allIn) {
-							log(this.room.id, `auto-folding disconnected player ${playerId}`);
-							applyAction(
-								this.gameState,
-								playerId,
-								{ type: 'fold' },
-								this.deck
-							);
+				if (this.gameState) {
+					const player = this.gameState.players.find((p) => p.id === playerId);
+					if (player) {
+						if (
+							this.gameState.activePlayerIndex ===
+							this.gameState.players.indexOf(player)
+						) {
+							if (!player.folded && !player.allIn) {
+								log(this.room.id, `auto-folding disconnected player ${playerId}`);
+								applyAction(
+									this.gameState,
+									playerId,
+									{ type: 'fold' },
+									this.deck
+								);
 
 							if (this.gameState.phase === 'complete') {
 								this.resolveHand();
 							}
 						}
+						// Mark sitting out after any auto-fold attempt so they can rejoin later.
+						player.sittingOut = true;
 					}
 				}
 			}
 
 			this.broadcast({ type: 'player-left', name: meta.name });
 			this.broadcastState();
+			this.scheduleTurnTimeout();
 		}
 
 		this.connectionToPlayer.delete(connection.id);
@@ -133,6 +137,9 @@ export default class PokerRoom implements Party.Server {
 				break;
 			case 'action':
 				this.handleAction(sender, msg.action, msg.amount);
+				break;
+			case 'auto-action':
+				this.handleAutoAction(sender, msg.action);
 				break;
 			case 'next-hand':
 				this.handleNextHand(sender);
@@ -205,6 +212,7 @@ export default class PokerRoom implements Party.Server {
 		});
 
 		this.broadcastState();
+		this.scheduleTurnTimeout();
 
 		if (this.gameState) {
 			const player = this.gameState.players.find((p) => p.id === playerId);
@@ -258,6 +266,8 @@ export default class PokerRoom implements Party.Server {
 
 		this.broadcastState();
 		this.sendPrivateCards();
+		this.scheduleTurnTimeout();
+		this.scheduleTurnTimeout();
 	}
 
 	private handleAction(
@@ -296,6 +306,33 @@ export default class PokerRoom implements Party.Server {
 		}
 
 		this.broadcastState();
+		this.scheduleTurnTimeout();
+		this.scheduleTurnTimeout();
+	}
+
+	private handleAutoAction(
+		connection: Party.Connection,
+		action: 'check-fold' | 'check' | 'call-any' | 'fold' | null
+	) {
+		const playerId = this.connectionToPlayer.get(connection.id);
+		if (!playerId) return;
+
+		this.autoActions.set(playerId, action);
+		log(this.room.id, `auto-action set: ${playerId} -> ${action ?? 'clear'}`);
+
+		if (this.gameState) {
+			const activePlayer = this.gameState.players[this.gameState.activePlayerIndex];
+			if (activePlayer?.id === playerId) {
+				const acted = this.tryAutoAction(playerId);
+				if (acted) {
+					if (this.gameState.phase === 'complete') {
+						this.resolveHand();
+					}
+					this.broadcastState();
+					this.scheduleTurnTimeout();
+				}
+			}
+		}
 	}
 
 	private handleNextHand(connection: Party.Connection) {
@@ -335,6 +372,7 @@ export default class PokerRoom implements Party.Server {
 
 		this.broadcastState();
 		this.sendPrivateCards();
+		this.scheduleTurnTimeout();
 	}
 
 	private handleRebuy(connection: Party.Connection, amount: number) {
@@ -411,6 +449,7 @@ export default class PokerRoom implements Party.Server {
 
 		this.broadcast({ type: 'player-left', name: meta.name });
 		this.broadcastState();
+		this.scheduleTurnTimeout();
 	}
 
 	private handleEndSession(connection: Party.Connection) {
@@ -455,6 +494,18 @@ export default class PokerRoom implements Party.Server {
 
 		this.gameState.phase = 'waiting';
 		this.gameStarted = false;
+		if (this.nextHandTimeout) {
+			clearTimeout(this.nextHandTimeout);
+			this.nextHandTimeout = null;
+		}
+		for (const timeout of this.countdownTimeouts) {
+			clearTimeout(timeout);
+		}
+		this.countdownTimeouts = [];
+		if (this.turnTimeout) {
+			clearTimeout(this.turnTimeout);
+			this.turnTimeout = null;
+		}
 		this.broadcastState();
 	}
 
@@ -478,13 +529,15 @@ export default class PokerRoom implements Party.Server {
 			const potWinners = evaluateHands(this.gameState);
 			distributeWinnings(this.gameState, potWinners);
 
-			const results = potWinners.flatMap((pw) =>
-				pw.winnerIds.map((id) => ({
+			const results = potWinners.flatMap((pw) => {
+				const share = Math.floor(pw.amount / pw.winnerIds.length);
+				const remainder = pw.amount - share * pw.winnerIds.length;
+				return pw.winnerIds.map((id, idx) => ({
 					playerId: id,
 					hand: pw.handDescriptions[id] ?? '',
-					amount: Math.floor(pw.amount / pw.winnerIds.length)
-				}))
-			);
+					amount: share + (idx === 0 ? remainder : 0)
+				}));
+			});
 
 			// Build showdown cards map for all active players
 			const showdownCards: Record<string, typeof active[0]['holeCards']> = {};
@@ -502,19 +555,25 @@ export default class PokerRoom implements Party.Server {
 	}
 
 	private nextHandTimeout: ReturnType<typeof setTimeout> | null = null;
+	private countdownTimeouts: ReturnType<typeof setTimeout>[] = [];
 
 	private scheduleNextHand() {
 		if (this.nextHandTimeout) {
 			clearTimeout(this.nextHandTimeout);
 		}
+		for (const timeout of this.countdownTimeouts) {
+			clearTimeout(timeout);
+		}
+		this.countdownTimeouts = [];
 
 		const COUNTDOWN_SECONDS = 4;
 
 		// Send countdown
 		for (let i = COUNTDOWN_SECONDS; i > 0; i--) {
-			setTimeout(() => {
+			const timeout = setTimeout(() => {
 				this.broadcast({ type: 'next-hand-countdown', seconds: i });
 			}, (COUNTDOWN_SECONDS - i) * 1000);
+			this.countdownTimeouts.push(timeout);
 		}
 
 		this.nextHandTimeout = setTimeout(() => {
@@ -611,6 +670,95 @@ export default class PokerRoom implements Party.Server {
 				cardCount: p.holeCards.length
 			};
 		});
+	}
+
+	private scheduleTurnTimeout() {
+		if (this.turnTimeout) {
+			clearTimeout(this.turnTimeout);
+			this.turnTimeout = null;
+		}
+
+		if (!this.gameState) return;
+		if (this.gameState.phase === 'waiting' || this.gameState.phase === 'complete') return;
+
+		const activePlayer = this.gameState.players[this.gameState.activePlayerIndex];
+		if (!activePlayer || activePlayer.folded || activePlayer.allIn || activePlayer.sittingOut) return;
+
+		// If a preset can resolve immediately, do it before starting a timer.
+		if (this.tryAutoAction(activePlayer.id)) {
+			if (this.gameState.phase === 'complete') {
+				this.resolveHand();
+				this.broadcastState();
+				return;
+			}
+			this.broadcastState();
+		}
+
+		this.turnTimeout = setTimeout(() => {
+			if (!this.gameState) return;
+			const currentActive = this.gameState.players[this.gameState.activePlayerIndex];
+			if (!currentActive || currentActive.id !== activePlayer.id) return;
+
+			const canCheck = currentActive.bet >= this.gameState.currentBet;
+			try {
+				applyAction(
+					this.gameState,
+					currentActive.id,
+					{ type: canCheck ? 'check' : 'fold' },
+					this.deck
+				);
+			} catch {
+				return;
+			}
+
+			if (this.gameState.phase === 'complete') {
+				this.resolveHand();
+			}
+
+			this.broadcastState();
+			this.scheduleTurnTimeout();
+		}, this.turnTimeoutSeconds * 1000);
+	}
+
+	private tryAutoAction(playerId: string): boolean {
+		if (!this.gameState) return false;
+		const action = this.autoActions.get(playerId);
+		if (!action) return false;
+
+		const player = this.gameState.players.find((p) => p.id === playerId);
+		if (!player || player.folded || player.allIn || player.sittingOut) return false;
+		if (this.gameState.players[this.gameState.activePlayerIndex]?.id !== playerId) return false;
+
+		const canCheck = player.bet >= this.gameState.currentBet;
+		let actionToApply: 'check' | 'call' | 'fold' | null = null;
+
+		switch (action) {
+			case 'check-fold':
+				actionToApply = canCheck ? 'check' : 'fold';
+				break;
+			case 'check':
+				actionToApply = canCheck ? 'check' : null;
+				break;
+			case 'call-any':
+				actionToApply = canCheck ? 'check' : 'call';
+				break;
+			case 'fold':
+				actionToApply = 'fold';
+				break;
+		}
+
+		if (!actionToApply) return false;
+
+		try {
+			applyAction(this.gameState, playerId, { type: actionToApply }, this.deck);
+		} catch {
+			return false;
+		}
+
+		// Clear after successful auto action.
+		this.autoActions.set(playerId, null);
+
+		return true;
 	}
 
 	private broadcastState() {

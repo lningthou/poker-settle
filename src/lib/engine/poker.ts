@@ -144,7 +144,7 @@ function resetBetsForNewRound(state: GameState): void {
 function calculateSidePots(state: GameState): Pot[] {
 	// Gather all player contributions
 	const contributions = state.players
-		.filter((p) => !p.sittingOut && p.totalBet > 0)
+		.filter((p) => p.totalBet > 0)
 		.map((p) => ({ id: p.id, amount: p.totalBet, folded: p.folded }))
 		.sort((a, b) => a.amount - b.amount);
 
@@ -273,7 +273,8 @@ export function applyAction(state: GameState, playerId: string, action: Action, 
 			const raiseAmount = action.amount;
 			if (raiseAmount === undefined) throw new Error('Raise amount required');
 
-			const totalToCall = state.currentBet - player.bet;
+			const prevCurrentBet = state.currentBet;
+			const totalToCall = prevCurrentBet - player.bet;
 			const totalCost = totalToCall + raiseAmount;
 
 			if (raiseAmount < state.minRaise && totalCost < player.chips) {
@@ -286,9 +287,14 @@ export function applyAction(state: GameState, playerId: string, action: Action, 
 			player.totalBet += actualCost;
 			state.pots[state.pots.length - 1].amount += actualCost;
 
-			state.minRaise = Math.max(state.minRaise, raiseAmount);
-			state.currentBet = player.bet;
-			state.lastRaiserIndex = playerIndex;
+			// Only treat as a full raise if the raise amount meets minRaise.
+			if (raiseAmount >= state.minRaise && player.bet > prevCurrentBet) {
+				state.minRaise = Math.max(state.minRaise, raiseAmount);
+				state.lastRaiserIndex = playerIndex;
+			}
+
+			// Never lower the current bet.
+			state.currentBet = Math.max(prevCurrentBet, player.bet);
 
 			if (player.chips === 0) player.allIn = true;
 			break;

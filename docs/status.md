@@ -17,7 +17,7 @@
 **Status**: Completed
 
 - [x] PartyKit server setup with room-based state
-- [x] Shareable room link generation
+- [x] Shareable room code copy
 - [x] Player join/leave flow (display name only)
 - [x] WebSocket message protocol design
 - [x] State sync between server and clients
@@ -58,12 +58,13 @@
   - [x] Showdown card reveal (opponents' cards visible during showdown)
   - [x] Players positioned outside table felt
 - [x] Sound effects (toggle-able)
-  - [x] Retro 8-bit sounds using jsfxr library
+  - [x] Retro 8-bit sounds using Web Audio API
   - [x] Sound toggle in header (persisted to localStorage)
   - [x] Sounds for all actions: fold, check, call, raise, all-in
   - [x] Your turn notification chime
   - [x] Win fanfare with screen shake
-- [ ] Edge case handling (disconnect mid-hand, player timeout)
+- [x] Edge case handling (disconnect mid-hand, player timeout)
+- [x] Auto action presets (check/fold, check, call any, fold)
 - [ ] Deploy frontend to Vercel
 - [ ] Deploy real-time server to PartyKit
 - [ ] End-to-end testing with friends

@@ -34,6 +34,7 @@
 		call,
 		raise,
 		allIn,
+		setAutoAction,
 		rebuy,
 		endSession,
 		kickPlayer,
@@ -57,6 +58,10 @@
 	let chatInput = $state('');
 	let chatContainer: HTMLDivElement;
 	let screenShake = $state(false);
+	let lastSliderTickAt = $state(0);
+	let confirmAllIn = $state(false);
+	let autoAction = $state<'check-fold' | 'check' | 'call-any' | 'fold' | null>(null);
+	let prevActivePlayerId = $state<string | null>(null);
 
 	onMount(() => {
 		const name = page.url.searchParams.get('name');
@@ -102,13 +107,13 @@
 	});
 
 	async function copyShareLink() {
-		const link = `${window.location.origin}/room/${page.params.code}`;
+		const link = page.params.code ?? '';
 		try {
 			await navigator.clipboard.writeText(link);
 			showCopied = true;
 			setTimeout(() => (showCopied = false), 2000);
 		} catch {
-			prompt('Copy this link:', link);
+			prompt('Copy this code:', link);
 		}
 	}
 
@@ -154,24 +159,38 @@
 
 	function handleRaise() {
 		if (raiseAmount > 0) {
-			sounds.raise();
-			raise(raiseAmount);
+			autoAction = null;
+			setAutoAction(null);
+			if (confirmAllIn) {
+				sounds.allIn();
+				allIn();
+			} else {
+				sounds.raise();
+				raise(raiseAmount);
+			}
 			raiseAmount = 0;
+			confirmAllIn = false;
 			showBetPanel = false;
 		}
 	}
 
 	function handleFold() {
+		autoAction = null;
+		setAutoAction(null);
 		sounds.fold();
 		fold();
 	}
 
 	function handleCheck() {
+		autoAction = null;
+		setAutoAction(null);
 		sounds.check();
 		check();
 	}
 
 	function handleCall() {
+		autoAction = null;
+		setAutoAction(null);
 		sounds.call();
 		call();
 	}
@@ -182,6 +201,7 @@
 		if (showBetPanel) {
 			// Default to min raise
 			raiseAmount = $minRaise || $bigBlind;
+			confirmAllIn = false;
 		}
 	}
 
@@ -194,20 +214,60 @@
 		const betAmount = Math.floor(pot * fraction);
 		// Clamp between min raise and max (all chips)
 		raiseAmount = Math.max(minBet, Math.min(betAmount, me.chips));
+		confirmAllIn = false;
+		sounds.sliderTick();
 	}
 
 	function handleAllIn() {
-		sounds.allIn();
-		allIn();
-		showBetPanel = false;
+		const me = $myPlayer;
+		if (!me) return;
+		raiseAmount = me.chips;
+		confirmAllIn = true;
+		sounds.sliderTick();
+	}
+
+	function handleSliderInput() {
+		const now = Date.now();
+		if (now - lastSliderTickAt > 80) {
+			sounds.sliderTick();
+			lastSliderTickAt = now;
+		}
+		confirmAllIn = false;
 	}
 
 	// Reset bet panel when turn changes
 	$effect(() => {
 		if (!$isMyTurn) {
 			showBetPanel = false;
+			confirmAllIn = false;
 		}
 	});
+
+	$effect(() => {
+		const currentActive = $players[$activePlayerIndex]?.id ?? null;
+		if (prevActivePlayerId === $playerId && currentActive !== $playerId) {
+			autoAction = null;
+			setAutoAction(null);
+		}
+		prevActivePlayerId = currentActive;
+	});
+
+	$effect(() => {
+		if ($phase === 'waiting' || $phase === 'complete') {
+			autoAction = null;
+			setAutoAction(null);
+		}
+	});
+
+	function toggleAutoAction(action: 'check-fold' | 'check' | 'call-any' | 'fold') {
+		if (autoAction === action) {
+			autoAction = null;
+			setAutoAction(null);
+			return;
+		}
+		autoAction = action;
+		setAutoAction(action);
+	}
 
 	function handleChatSubmit(e: Event) {
 		e.preventDefault();
@@ -356,146 +416,189 @@
 
 		<!-- Active Game -->
 		{:else}
-			<PokerTable
-				players={$players}
-				myId={$playerId}
-				communityCards={$communityCards}
-				dealerIndex={$dealerIndex}
-				activePlayerIndex={$activePlayerIndex}
-				pots={$pots}
-				phase={$phase}
-				holeCards={$holeCards}
-				smallBlind={$smallBlind}
-				bigBlind={$bigBlind}
-				showdownCards={$showdownCards}
-				showdown={$phase === 'showdown' || $phase === 'complete'}
-				winners={$phase === 'complete' ? $handResult ?? [] : []}
-			/>
+			<div class="game-layout">
+				<div class="game-main">
+					<PokerTable
+						players={$players}
+						myId={$playerId}
+						communityCards={$communityCards}
+						dealerIndex={$dealerIndex}
+						activePlayerIndex={$activePlayerIndex}
+						pots={$pots}
+						phase={$phase}
+						holeCards={$holeCards}
+						smallBlind={$smallBlind}
+						bigBlind={$bigBlind}
+						showdownCards={$showdownCards}
+						showdown={$phase === 'showdown' || $phase === 'complete'}
+						winners={$phase === 'complete' ? $handResult ?? [] : []}
+					/>
 
-			<!-- Game paused - waiting for players to rebuy -->
-			{#if isGamePaused()}
-				<div class="game-paused panel">
-					<div class="pause-icon">II</div>
-					<h3 class="text-lg text-gold text-center">Game Paused</h3>
-					<p class="text-secondary text-center">
-						{#if playersWithChips() === 1}
-							Only one player has chips. Waiting for others to rebuy...
-						{:else}
-							No players have chips. Everyone needs to rebuy to continue.
-						{/if}
-					</p>
-					{#if $isHost}
-						<button class="btn btn-danger" onclick={endSession}>End Session</button>
-					{/if}
-				</div>
-			{:else if $nextHandCountdown && $phase === 'complete'}
-				<!-- Next hand countdown (subtle, at bottom) -->
-				<div class="next-hand-countdown">
-					Next hand in {$nextHandCountdown}...
-				</div>
-			{/if}
-
-			<!-- Rebuy prompt when busted -->
-			{#if needsRebuy()}
-				<div class="rebuy-prompt panel glow-gold slide-up">
-					<h3 class="text-lg text-gold text-center mb-4">Out of Chips!</h3>
-					<p class="text-secondary text-center mb-4">Rebuy to continue playing</p>
-					<div class="rebuy-controls">
-						<div class="stepper">
-							<button class="step-btn" onclick={() => (rebuyAmount = Math.max(100, rebuyAmount - 100))}>-</button>
-							<input type="number" bind:value={rebuyAmount} min="100" step="100" />
-							<button class="step-btn" onclick={() => (rebuyAmount += 100)}>+</button>
+					<!-- Game paused - waiting for players to rebuy -->
+					{#if isGamePaused()}
+						<div class="game-paused panel">
+							<div class="pause-icon">II</div>
+							<h3 class="text-lg text-gold text-center">Game Paused</h3>
+							<p class="text-secondary text-center">
+								{#if playersWithChips() === 1}
+									Only one player has chips. Waiting for others to rebuy...
+								{:else}
+									No players have chips. Everyone needs to rebuy to continue.
+								{/if}
+							</p>
+							{#if $isHost}
+								<button class="btn btn-danger" onclick={endSession}>End Session</button>
+							{/if}
 						</div>
-						<button class="btn btn-gold" onclick={handleRebuy}>
-							Rebuy {rebuyAmount} Chips
-						</button>
-					</div>
-				</div>
-			{/if}
+					{:else if $nextHandCountdown && $phase === 'complete'}
+						<!-- Next hand countdown (subtle, at bottom) -->
+						<div class="next-hand-countdown">
+							Next hand in {$nextHandCountdown}...
+						</div>
+					{/if}
 
-			<!-- Betting Controls -->
-			{#if $isMyTurn && $phase !== 'complete'}
-				<div class="controls panel">
-					<div class="action-buttons">
-						<button class="btn btn-danger" onclick={handleFold}>Fold</button>
-						{#if canCheck()}
-							<button class="btn btn-blue" onclick={handleCheck}>Check</button>
-						{:else if isCallAllIn()}
-							<button class="btn btn-gold" onclick={handleCall}>
-								Call {callAmount()} (All In)
-							</button>
-						{:else}
-							<button class="btn btn-blue" onclick={handleCall}>
-								Call {callAmount()}
-							</button>
-						{/if}
-						{#if !isCallAllIn()}
-							<button
-								class="btn btn-green"
-								class:active={showBetPanel}
-								onclick={toggleBetPanel}
-							>
-								{$currentBet > 0 ? 'Raise' : 'Bet'}
-							</button>
-						{/if}
-					</div>
-
-					<!-- Bet/Raise Panel -->
-					{#if showBetPanel && !isCallAllIn()}
-						<div class="bet-panel slide-up">
-							<div class="bet-presets">
-								<button class="preset-btn" onclick={() => setBetPreset(0.25)}>1/4</button>
-								<button class="preset-btn" onclick={() => setBetPreset(0.5)}>1/2</button>
-								<button class="preset-btn" onclick={() => setBetPreset(0.75)}>3/4</button>
-								<button class="preset-btn" onclick={() => setBetPreset(1)}>Pot</button>
-								<button class="preset-btn allin" onclick={handleAllIn}>All In</button>
+					<!-- Betting Controls -->
+					{#if $isMyTurn && $phase !== 'complete'}
+						<div class="controls panel">
+							<div class="action-buttons">
+								<button class="btn btn-danger" onclick={handleFold}>Fold</button>
+								{#if canCheck()}
+									<button class="btn btn-blue" onclick={handleCheck}>Check</button>
+								{:else if isCallAllIn()}
+									<button class="btn btn-gold" onclick={handleCall}>
+										Call {callAmount()} (All In)
+									</button>
+								{:else}
+									<button class="btn btn-blue" onclick={handleCall}>
+										Call {callAmount()}
+									</button>
+								{/if}
+								{#if !isCallAllIn()}
+									<button
+										class="btn btn-green"
+										class:active={showBetPanel}
+										onclick={toggleBetPanel}
+									>
+										{$currentBet > 0 ? 'Raise' : 'Bet'}
+									</button>
+								{/if}
 							</div>
-							<div class="bet-slider">
-								<input
-									type="range"
-									min={$minRaise || $bigBlind}
-									max={$myPlayer?.chips ?? 0}
-									step={$bigBlind}
-									bind:value={raiseAmount}
-								/>
-								<div class="slider-labels">
-									<span>{$minRaise || $bigBlind}</span>
-									<span>{$myPlayer?.chips ?? 0}</span>
+
+							<!-- Bet/Raise Panel -->
+							{#if showBetPanel && !isCallAllIn()}
+								<div class="bet-panel slide-up">
+									<div class="bet-presets">
+										<button class="preset-btn" onclick={() => setBetPreset(0.25)}>1/4</button>
+										<button class="preset-btn" onclick={() => setBetPreset(0.5)}>1/2</button>
+										<button class="preset-btn" onclick={() => setBetPreset(0.75)}>3/4</button>
+										<button class="preset-btn" onclick={() => setBetPreset(1)}>Pot</button>
+										<button class="preset-btn allin" onclick={handleAllIn}>All In</button>
+									</div>
+									<div class="bet-slider">
+										<input
+											type="range"
+											min={$minRaise || $bigBlind}
+											max={$myPlayer?.chips ?? 0}
+											step={$bigBlind}
+											bind:value={raiseAmount}
+											oninput={handleSliderInput}
+										/>
+										<div class="slider-labels">
+											<span>{$minRaise || $bigBlind}</span>
+											<span>{$myPlayer?.chips ?? 0}</span>
+										</div>
+									</div>
+									<div class="bet-confirm">
+										<input type="number" bind:value={raiseAmount} min={$minRaise || $bigBlind} />
+										<button class="btn btn-gold" onclick={handleRaise} disabled={raiseAmount <= 0}>
+											{confirmAllIn ? 'All In' : ($currentBet > 0 ? 'Raise' : 'Bet')} {raiseAmount}
+										</button>
+									</div>
 								</div>
-							</div>
-							<div class="bet-confirm">
-								<input type="number" bind:value={raiseAmount} min={$minRaise || $bigBlind} />
-								<button class="btn btn-gold" onclick={handleRaise} disabled={raiseAmount <= 0}>
-									{$currentBet > 0 ? 'Raise' : 'Bet'} {raiseAmount}
+							{/if}
+						</div>
+					{/if}
+
+					{#if $phase !== 'complete' && $phase !== 'waiting' && $myPlayer && !$myPlayer.folded && !$myPlayer.sittingOut && !$myPlayer.allIn}
+						<div class="auto-actions panel">
+							<div class="auto-actions-title">Preset Actions</div>
+							<div class="auto-actions-buttons">
+								<button
+									class="btn btn-secondary btn-sm"
+									class:active={autoAction === 'check-fold'}
+									onclick={() => toggleAutoAction('check-fold')}
+								>
+									Check/Fold
+								</button>
+								<button
+									class="btn btn-secondary btn-sm"
+									class:active={autoAction === 'check'}
+									onclick={() => toggleAutoAction('check')}
+								>
+									Check
+								</button>
+								<button
+									class="btn btn-secondary btn-sm"
+									class:active={autoAction === 'call-any'}
+									onclick={() => toggleAutoAction('call-any')}
+								>
+									Call Any
+								</button>
+								<button
+									class="btn btn-secondary btn-sm"
+									class:active={autoAction === 'fold'}
+									onclick={() => toggleAutoAction('fold')}
+								>
+									Fold
 								</button>
 							</div>
 						</div>
 					{/if}
 				</div>
-			{/if}
 
-			<!-- Chat -->
-			<div class="chat-section panel">
-				<div class="chat-messages hide-scrollbar" bind:this={chatContainer}>
-					{#each $chatMessages as msg}
-						<div class="chat-msg" class:mine={msg.senderId === $playerId}>
-							<span class="chat-name">{msg.name}:</span>
-							<span class="chat-text">{msg.message}</span>
+				<aside class="game-side">
+					<!-- Rebuy prompt when busted -->
+					{#if needsRebuy()}
+						<div class="rebuy-prompt panel glow-gold slide-up">
+							<h3 class="text-lg text-gold text-center mb-4">Out of Chips!</h3>
+							<p class="text-secondary text-center mb-4">Rebuy to continue playing</p>
+							<div class="rebuy-controls">
+								<div class="stepper">
+									<button class="step-btn" onclick={() => (rebuyAmount = Math.max(100, rebuyAmount - 100))}>-</button>
+									<input type="number" bind:value={rebuyAmount} min="100" step="100" />
+									<button class="step-btn" onclick={() => (rebuyAmount += 100)}>+</button>
+								</div>
+								<button class="btn btn-gold" onclick={handleRebuy}>
+									Rebuy {rebuyAmount} Chips
+								</button>
+							</div>
 						</div>
-					{/each}
-					{#if $chatMessages.length === 0}
-						<div class="chat-empty">No messages yet</div>
 					{/if}
-				</div>
-				<form class="chat-input" onsubmit={handleChatSubmit}>
-					<input
-						type="text"
-						bind:value={chatInput}
-						placeholder="Type a message..."
-						maxlength="200"
-					/>
-					<button type="submit" class="btn btn-primary btn-sm" disabled={!chatInput.trim()}>Send</button>
-				</form>
+
+					<!-- Chat -->
+					<div class="chat-section panel">
+						<div class="chat-messages hide-scrollbar" bind:this={chatContainer}>
+							{#each $chatMessages as msg}
+								<div class="chat-msg" class:mine={msg.senderId === $playerId}>
+									<span class="chat-name">{msg.name}:</span>
+									<span class="chat-text">{msg.message}</span>
+								</div>
+							{/each}
+							{#if $chatMessages.length === 0}
+								<div class="chat-empty">No messages yet</div>
+							{/if}
+						</div>
+						<form class="chat-input" onsubmit={handleChatSubmit}>
+							<input
+								type="text"
+								bind:value={chatInput}
+								placeholder="Type a message..."
+								maxlength="200"
+							/>
+							<button type="submit" class="btn btn-primary btn-sm" disabled={!chatInput.trim()}>Send</button>
+						</form>
+					</div>
+				</aside>
 			</div>
 		{/if}
 	</div>
@@ -513,6 +616,28 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-4);
+	}
+
+	.game-layout {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 280px;
+		gap: var(--space-4);
+		align-items: start;
+	}
+
+	.game-main {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		min-width: 0;
+	}
+
+	.game-side {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		position: sticky;
+		top: var(--space-4);
 	}
 
 	/* Header */
@@ -722,7 +847,8 @@
 
 	/* Rebuy Prompt */
 	.rebuy-prompt {
-		margin-top: var(--space-4);
+		position: sticky;
+		top: var(--space-4);
 	}
 
 	.rebuy-controls {
@@ -848,15 +974,44 @@
 		min-width: 120px;
 	}
 
+	/* Preset Actions */
+	.auto-actions {
+		padding: var(--space-3);
+	}
+
+	.auto-actions-title {
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+		margin-bottom: var(--space-2);
+	}
+
+	.auto-actions-buttons {
+		display: flex;
+		gap: var(--space-2);
+		flex-wrap: wrap;
+	}
+
+	.auto-actions .btn.active {
+		background: var(--accent-blue);
+		border-color: #3f7ed9;
+		color: white;
+		box-shadow: 0 0 10px var(--shadow-blue);
+	}
+
 	/* Chat */
 	.chat-section {
-		margin-top: var(--space-4);
 		padding: 0;
 		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		min-height: 260px;
 	}
 
 	.chat-messages {
-		height: 120px;
+		flex: 1;
+		min-height: 140px;
 		overflow-y: auto;
 		padding: var(--space-3);
 		display: flex;
@@ -904,6 +1059,16 @@
 	.chat-input input {
 		flex: 1;
 		font-size: 14px;
+	}
+
+	@media (max-width: 900px) {
+		.game-layout {
+			grid-template-columns: 1fr;
+		}
+
+		.game-side {
+			position: static;
+		}
 	}
 
 	/* Settlement */

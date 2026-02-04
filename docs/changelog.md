@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Turn timer with auto check/fold on timeout
+- Preset auto actions: Check/Fold, Check, Call Any, Fold
+- Slider and preset tick sound effects
 - Balatro-style winner highlighting with confetti animation
   - Winner's seat scales up and glows gold
   - Confetti particles burst from winner
@@ -74,6 +77,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Refactored game room page to use new component architecture
 - Increased max width from 600px to 800px for better table layout
 - Buttons now use chunky 3D style with shadows
+- Share button now copies room code (not a full link)
+- Game layout: chat and rebuy moved to a side column with sticky rebuy
+- All-in now requires confirmation via the main bet/raise confirm button
 
 ### Previously Added
 - Initial project specification (`PROJECT_SPEC.md`)
@@ -125,6 +131,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Betting round logic: players were being skipped because `isBettingRoundOver` returned true after a single check (added `roundStartIndex` tracking so the round only ends when action returns to the starting player or last raiser)
 - Copy share link button now works (async clipboard API with fallback to prompt)
+- Disconnect auto-fold flow and side-pot accounting for sitting-out players
+- Short all-in raises no longer lower `currentBet`
+- Hand result payouts now match actual split pot remainder distribution
+- Next-hand countdown timers are cleared correctly between hands and on session end
+- SB/BB badge display skips sitting-out players
 
 ### Changed
 - Card colors: spades and clubs now render in black (was gray, hard to see on white cards)

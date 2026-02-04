@@ -209,6 +209,10 @@ export function allIn() {
 	send({ type: 'action', action: 'all-in' });
 }
 
+export function setAutoAction(action: 'check-fold' | 'check' | 'call-any' | 'fold' | null) {
+	send({ type: 'auto-action', action });
+}
+
 export function nextHand() {
 	send({ type: 'next-hand' });
 	handResult.set(null);
