@@ -363,6 +363,15 @@ export default class PokerRoom implements Party.Server {
 
 		log(this.room.id, `rebuy: ${playerId} +${amount} chips, total buyIn=${meta?.buyIn} chips ($${meta?.buyInDollars})`);
 		this.broadcastState();
+
+		// Check if we can now resume the game (at least 2 players with chips)
+		if (this.gameState.phase === 'complete') {
+			const playersWithChips = this.gameState.players.filter((p) => p.chips > 0 && !p.sittingOut);
+			if (playersWithChips.length >= 2) {
+				log(this.room.id, `enough players after rebuy, scheduling next hand`);
+				this.scheduleNextHand();
+			}
+		}
 	}
 
 	private handleKick(connection: Party.Connection, targetId: string) {
